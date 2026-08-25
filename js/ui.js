@@ -374,8 +374,8 @@
       container.innerHTML = buildTable(sorted) + buildCards(sorted);
     },
 
-    /* -------------------- DRAWER (add / edit) -------------------- */
-    openDrawer: function (mode, record, defaultType) {
+    /* -------------------- DRAWER (add / edit / review) -------------------- */
+    openDrawer: function (mode, record, defaultType, confidence) {
       var drawer = el("drawer");
       var overlay = el("drawer-overlay");
       var form = el("expense-form");
@@ -383,7 +383,21 @@
       form.reset();
       ui.clearFieldErrors();
 
-      if (mode === "edit" && record) {
+      if (mode === "review" && record) {
+        var reviewType = storage.normalizeType(record.type);
+        el("drawer-eyebrow").textContent = "Smart entry";
+        el("drawer-title").textContent = "Review transaction";
+        el("btn-save").textContent = "Save transaction";
+        el("field-id").value = "";
+        ui.setFormType(reviewType, record.category);
+        el("field-title").value = record.title || "";
+        el("field-amount").value = record.amount != null ? record.amount : "";
+        el("field-category").value = record.category || "";
+        el("field-vendor").value = record.vendor || "";
+        el("field-date").value = record.date || expenses._util.todayKey();
+        el("field-notes").value = record.notes || "";
+        ui.showReviewBanner(confidence);
+      } else if (mode === "edit" && record) {
         var type = recordType(record);
         el("drawer-eyebrow").textContent = "Editing";
         el("drawer-title").textContent = "Edit transaction";
@@ -396,6 +410,7 @@
         el("field-vendor").value = record.vendor || "";
         el("field-date").value = record.date || "";
         el("field-notes").value = record.notes || "";
+        ui.hideReviewBanner();
       } else {
         var addType = storage.normalizeType(defaultType || "expense");
         el("drawer-eyebrow").textContent = "New entry";
@@ -404,6 +419,7 @@
         el("field-id").value = "";
         ui.setFormType(addType);
         el("field-date").value = expenses._util.todayKey();
+        ui.hideReviewBanner();
       }
 
       overlay.hidden = false;
@@ -412,6 +428,31 @@
       overlay.classList.add("is-shown");
       drawer.classList.add("is-open");
       setTimeout(function () { el("field-title").focus(); }, 120);
+    },
+
+    showReviewBanner: function (confidence) {
+      var banner = el("review-banner");
+      if (!banner) return;
+      banner.hidden = false;
+      banner.classList.remove("is-warning", "is-high");
+      var title = el("review-banner-title");
+      var text = el("review-banner-text");
+      if (confidence === "high") {
+        banner.classList.add("is-high");
+        title.textContent = "Transaction detected";
+        text.textContent = "This looks right — review the details and save.";
+      } else {
+        banner.classList.add("is-warning");
+        title.textContent = "Please review";
+        text.textContent = "Please review the detected information before saving.";
+      }
+    },
+
+    hideReviewBanner: function () {
+      var banner = el("review-banner");
+      if (!banner) return;
+      banner.hidden = true;
+      banner.classList.remove("is-warning", "is-high");
     },
 
     closeDrawer: function () {

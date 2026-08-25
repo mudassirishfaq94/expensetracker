@@ -197,6 +197,67 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .view { max-width: 1180px; margin: 0 auto; }
 .view[hidden] { display: none; }
 
+/* ------------------------- Smart natural-language input ----------------- */
+.smart-panel {
+  background:
+    radial-gradient(120% 160% at 100% 0%, rgba(201,162,39,0.16) 0%, rgba(201,162,39,0) 46%),
+    var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 22px 24px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 22px;
+}
+.smart-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.smart-icon {
+  display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(160deg, var(--forest-600), var(--forest));
+  color: var(--gold-soft);
+  box-shadow: var(--shadow-sm);
+}
+.smart-title { font-family: "Fraunces", serif; font-weight: 600; font-size: 21px; color: var(--ink); }
+.smart-sub { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+.smart-row { display: flex; gap: 12px; align-items: stretch; }
+.smart-input {
+  flex: 1;
+  padding: 13px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--paper-2);
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 54px;
+  transition: border-color 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+.smart-input::placeholder { color: #9AA69D; }
+.smart-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,162,39,0.18);
+}
+.btn-analyze { align-self: center; padding: 13px 20px; }
+.smart-error {
+  margin-top: 10px;
+  font-size: 13px; font-weight: 500;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid #E8CFC8;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.smart-examples {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 14px;
+}
+.smart-examples-label {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--muted);
+}
+.smart-chip { padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.smart-chip:hover { border-color: var(--gold); color: var(--ink); background: #FDFBF4; }
+
 /* ------------------------------ Buttons -------------------------------- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -571,6 +632,24 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .drawer-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); }
 .drawer-title { font-family: "Fraunces", serif; font-weight: 600; font-size: 23px; color: var(--ink); margin-top: 2px; }
 
+/* Smart-entry review / confidence banner */
+.review-banner {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 14px 24px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--danger-soft);
+  border: 1px solid #E8CFC8;
+}
+.review-banner.is-high {
+  background: var(--success-soft);
+  border-color: #B5D6C4;
+}
+.review-banner-ico { flex-shrink: 0; color: var(--danger); margin-top: 1px; }
+.review-banner.is-high .review-banner-ico { color: var(--success); }
+.review-banner-title { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.review-banner-text { font-size: 12.5px; color: var(--ink-2); margin-top: 1px; }
+
 .drawer-form { padding: 20px 24px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -724,6 +803,8 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   .toast { max-width: none; }
   .filters { gap: 8px; }
   .select { flex: 1; }
+  .smart-row { flex-direction: column; }
+  .btn-analyze { width: 100%; }
 }
 
 /* --------------------------- Reduced motion ---------------------------- */

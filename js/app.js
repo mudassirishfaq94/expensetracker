@@ -118,6 +118,8 @@
       ui.closeDrawer();
       refresh();
       ui.toast(payload.type === "income" ? "Income added" : "Expense added");
+      var nlInput = el("nl-input");
+      if (nlInput && nlInput.value) nlInput.value = "";
     }
   }
 
@@ -200,6 +202,40 @@
     ui.toast("Sample data loaded");
   }
 
+  /* --------------------- smart natural-language entry --------------------- */
+  function handleAnalyze() {
+    var input = el("nl-input");
+    var errBox = el("nl-error");
+    var text = (input.value || "").trim();
+
+    errBox.hidden = true;
+    errBox.textContent = "";
+
+    if (!text) {
+      errBox.textContent = "Describe the transaction first, e.g. \u201CI bought sugar from Carrefour for 12 AED\u201D.";
+      errBox.hidden = false;
+      input.focus();
+      return;
+    }
+
+    ET.parser.parseTransaction(text).then(function (result) {
+      if (result.error) {
+        errBox.textContent = result.error;
+        errBox.hidden = false;
+        return;
+      }
+      ui.openDrawer("review", result.data, null, result.confidence);
+    });
+  }
+
+  function pickExample(button) {
+    el("nl-input").value = button.getAttribute("data-example") || "";
+    var errBox = el("nl-error");
+    errBox.hidden = true;
+    errBox.textContent = "";
+    el("nl-input").focus();
+  }
+
   function wire() {
     document.querySelectorAll(".nav-item[data-view]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -220,6 +256,20 @@
     });
     document.querySelectorAll('[data-action="load-sample"]').forEach(function (b) {
       b.addEventListener("click", loadSamples);
+    });
+
+    // Smart natural-language entry
+    el("btn-analyze").addEventListener("click", handleAnalyze);
+    el("nl-input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleAnalyze();
+      }
+    });
+    document.querySelectorAll("[data-example]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        pickExample(chip);
+      });
     });
 
     el("expense-form").addEventListener("submit", handleSubmit);

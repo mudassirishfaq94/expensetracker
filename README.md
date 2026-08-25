@@ -7,10 +7,30 @@ accounts, no external services — your data never leaves the browser.
 > Completed phases:
 > **Part 1** — expense-only core foundation (dashboard, CRUD, filters).
 > **Part 2** — income + expense transaction system with a financial summary.
-> The next phase (Part 3) will add natural-language transaction entry; Google
-> Sheets sync, reports, and settings are planned later.
+> **Part 3** — natural-language transaction input (smart entry).
+> The next phase (Part 4) will add Google Sheets integration and automatic
+> synchronization; reports and settings are planned later.
 
 ## Features
+
+### Smart entry (natural language)
+
+- **Add Transaction Quickly** panel at the top of the Dashboard — type a normal
+  sentence such as "I bought sugar from Carrefour for 12 AED" and click
+  **Analyze Transaction** (or press Enter).
+- **Rule-based parser** (`js/parser.js`) detects transaction type (income /
+  expense), amount, currency (AED, DHS, Dirhams, …), date (today, yesterday,
+  last Friday, 25/08/2026, …), category, and vendor/source — fully offline,
+  no AI APIs.
+- **Review screen** — nothing is saved automatically. Every detected field is
+  shown in a confirmation drawer where you can correct anything before saving.
+  Low-confidence parses clearly prompt you to review the details.
+- **Example chips** below the input fill the box with a sample sentence.
+- **Graceful errors** — vague text, missing amounts, and multiple transactions
+  in one sentence show clear messages instead of saving anything.
+- Built so a future AI parser can be added later as an optional fallback for
+  low-confidence input; the manual form and smart entry share the same
+  `addTransaction()` save path.
 
 ### Transactions (income + expenses)
 
@@ -78,22 +98,23 @@ python -m http.server 8000
 ## Project structure
 
 ```
-/index.html        Markup: sidebar, dashboard, transactions view, drawer, modal
+/index.html        Markup: sidebar, dashboard (with smart input), transactions view, drawer, modal
 /css/style.css     Full design system (tokens, components, responsive)
 /js/storage.js     localStorage layer, migration, id generation, sample data
 /js/transactions.js  Domain logic: CRUD, filtering, sorting, statistics
 /js/expenses.js    Compatibility shim (aliases ET.expenses to ET.transactions)
+/js/parser.js      Rule-based natural-language parser (smart entry)
 /js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts)
 /js/app.js         Bootstrap, routing, validation, event wiring
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → transactions → expenses → ui → app`). Classic scripts (not ES
-modules) are used so the app runs correctly even when opened directly from the
-file system. All writes go through the single `addTransaction()` function in
-`transactions.js`, so a future natural-language parser can reuse the same
-central save path.
+(`storage → transactions → expenses → parser → ui → app`). Classic scripts (not
+ES modules) are used so the app runs correctly even when opened directly from
+the file system. All writes go through the single `addTransaction()` function
+in `transactions.js` — the manual form and the natural-language parser both use
+it, and a future AI parser can reuse the same central save path.
 
 ## Data model
 
@@ -125,8 +146,8 @@ Refund · Other Income
 
 ## Roadmap (not built yet)
 
-Part 3: Natural-language transaction input · Google Sheets integration ·
-Reports & charts · Settings · Authentication / cloud sync.
+Part 4: Google Sheets integration & automatic synchronization · Reports &
+charts · Settings · Authentication / cloud sync.
 
 ---
 
