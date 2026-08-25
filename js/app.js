@@ -46,11 +46,14 @@
       ui.renderReportsPage(all, state.reportFilters);
     } else if (state.view === "budgets") {
       ui.renderBudgetsPage(all);
+    } else if (state.view === "recurring") {
+      ui.renderRecurringPage();
     } else {
       ui.renderDashboard(all);
     }
     ui.renderDashboardBudget(all);
     ui.renderDashboardGoals();
+    ui.renderDashboardUpcoming();
 
     var filtered = expenses.filter(all, state.filters);
     ui.renderList(filtered, all.length);
@@ -70,12 +73,22 @@
     if (state.view === "sheets") return "sheets";
     if (state.view === "reports") return "reports";
     if (state.view === "budgets") return "budgets";
+    if (state.view === "recurring") return "recurring";
     if (state.filters.type === "income") return "income";
     if (state.filters.type === "expense") return "expenses";
     return "transactions";
   }
 
   function goToView(view) {
+    if (view === "recurring") {
+      state.view = "recurring";
+      state.navKey = "recurring";
+      ui.setView("recurring", "recurring");
+      closeSidebar();
+      processRecurringNow();
+      refresh();
+      return;
+    }
     if (view === "budgets") {
       state.view = "budgets";
       state.navKey = "budgets";
@@ -133,6 +146,7 @@
     state.navKey = "dashboard";
     ui.setView("dashboard", "dashboard");
     closeSidebar();
+    processRecurringNow();
     refresh({ animateDashboard: true });
   }
 
@@ -247,6 +261,7 @@
       : state.view === "sheets" ? "sheets"
       : state.view === "reports" ? "reports"
       : state.view === "budgets" ? "budgets"
+      : state.view === "recurring" ? "recurring"
       : "transactions";
     ui.setView(view, state.navKey);
   }
@@ -558,6 +573,106 @@
     }
   }
 
+  /* ------------------- Recurring transactions handlers ------------------- */
+  var recurringProcessing = false;
+
+  function processRecurringNow() {
+    if (recurringProcessing) return;
+    recurringProcessing = true;
+    var summary;
+    try {
+      summary = ET.recurring.processRecurringTransactions(expenses.all());
+    } catch (err) {
+      recurringProcessing = false;
+      ui.toast("Could not process recurring transactions.", "error");
+      return;
+    }
+    recurringProcessing = false;
+
+    if (summary.generatedRecords && summary.generatedRecords.length) {
+      summary.generatedRecords.forEach(function (rec) { attemptSync(rec); });
+    }
+    if (summary.generated > 0) {
+      ui.toast(summary.generated + " recurring transaction(s) generated.", "success");
+    }
+    summary.warnings.forEach(function (w) { ui.toast(w, "error"); });
+    return summary;
+  }
+
+  function readRecurringForm() {
+    return {
+      type: document.querySelector("[data-rf-type].is-active") ? document.querySelector("[data-rf-type].is-active").getAttribute("data-rf-type") : "expense",
+      title: el("rf-title").value,
+      amount: el("rf-amount").value,
+      category: el("rf-category").value,
+      vendor: el("rf-vendor").value,
+      notes: el("rf-notes").value,
+      frequency: el("rf-frequency").value,
+      startDate: el("rf-start-date").value,
+      nextDueDate: el("rf-next-due").value,
+      isSubscription: el("rf-subscription").checked,
+      status: el("rf-status").value
+    };
+  }
+
+  function handleRecurringSubmit(e) {
+    e.preventDefault();
+    var id = el("rf-id").value;
+    var errBox = el("rf-error");
+    errBox.hidden = true;
+    errBox.textContent = "";
+    var result = id
+      ? ET.recurring.updateRecurring(id, readRecurringForm())
+      : ET.recurring.addRecurring(readRecurringForm());
+    if (result.error) {
+      errBox.textContent = result.error;
+      errBox.hidden = false;
+      return;
+    }
+    ui.closeRecurringDrawer();
+    refresh();
+    ui.toast(id ? "Recurring transaction updated." : "Recurring transaction added.");
+  }
+
+  function handleRecurringListClick(e) {
+    var editBtn = e.target.closest("[data-edit-recurring]");
+    if (editBtn) {
+      var def = ET.recurring.findById(editBtn.getAttribute("data-edit-recurring"));
+      if (def) ui.openRecurringDrawer("edit", def);
+      return;
+    }
+    var toggleBtn = e.target.closest("[data-toggle-recurring]");
+    if (toggleBtn) {
+      var tid = toggleBtn.getAttribute("data-toggle-recurring");
+      var tdef = ET.recurring.findById(tid);
+      if (tdef) {
+        if (tdef.status === "paused") {
+          ET.recurring.resumeRecurring(tid);
+          ui.toast("Recurring transaction resumed.");
+        } else {
+          ET.recurring.pauseRecurring(tid);
+          ui.toast("Recurring transaction paused.", "info");
+        }
+        refresh();
+      }
+      return;
+    }
+    var delBtn = e.target.closest("[data-delete-recurring]");
+    if (delBtn) {
+      var did = delBtn.getAttribute("data-delete-recurring");
+      state.pendingAction = function () {
+        ET.recurring.deleteRecurring(did);
+        refresh();
+        ui.toast("Recurring transaction deleted. Historical transactions remain.", "info");
+      };
+      ui.openConfirm(
+        "Delete this recurring transaction?\n\nThis stops future automatic transactions. Historical transactions already generated will remain.",
+        "Delete recurring transaction?",
+        "Delete"
+      );
+    }
+  }
+
   /* --------------------- smart natural-language entry --------------------- */
   function handleAnalyze() {
     var input = el("nl-input");
@@ -760,12 +875,42 @@
     el("btn-add-goal").addEventListener("click", addGoal);
     el("goals-list").addEventListener("click", handleGoalsListClick);
 
+    // Recurring & subscriptions
+    el("btn-add-recurring").addEventListener("click", function () { ui.openRecurringDrawer("add", null); });
+    el("btn-check-due").addEventListener("click", function () {
+      var summary = processRecurringNow();
+      refresh();
+      if (summary) {
+        ui.toast("Checked due transactions: " + summary.generated + " generated.", summary.generated ? "success" : "info");
+      }
+    });
+    el("recurring-form").addEventListener("submit", handleRecurringSubmit);
+    el("btn-close-recurring-drawer").addEventListener("click", ui.closeRecurringDrawer);
+    el("btn-cancel-recurring-drawer").addEventListener("click", ui.closeRecurringDrawer);
+    el("recurring-drawer-overlay").addEventListener("click", ui.closeRecurringDrawer);
+    el("recurring-list").addEventListener("click", handleRecurringListClick);
+    el("subscriptions-list").addEventListener("click", handleRecurringListClick);
+    document.querySelectorAll("[data-action='open-recurring-add']").forEach(function (b) {
+      b.addEventListener("click", function () { ui.openRecurringDrawer("add", null); });
+    });
+    document.querySelectorAll("[data-rf-type]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        ui.setRecurringFormType(btn.getAttribute("data-rf-type"));
+      });
+    });
+    document.querySelectorAll("[data-rtab]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        ui.setRecurringTab(btn.getAttribute("data-rtab"));
+      });
+    });
+
     el("btn-menu").addEventListener("click", openSidebar);
     el("sidebar-backdrop").addEventListener("click", closeSidebar);
 
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
       if (ui.isConfirmOpen()) { state.pendingDeleteId = null; state.pendingAction = null; ui.closeConfirm(); }
+      else if (ui.isRecurringDrawerOpen()) { ui.closeRecurringDrawer(); }
       else if (ui.isDrawerOpen()) { ui.closeDrawer(); }
       else if (el("sidebar").classList.contains("is-open")) { closeSidebar(); }
     });
@@ -775,6 +920,7 @@
     ui.populateCategorySelects();
     wire();
     ui.setView("dashboard", "dashboard");
+    processRecurringNow();
     refresh({ animateDashboard: true });
   }
 

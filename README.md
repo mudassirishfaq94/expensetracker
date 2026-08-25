@@ -15,10 +15,43 @@ accounts, no external services — your data never leaves the browser.
 > **Part 5.1** — Fix reports filter reset and empty-state recovery bug.
 > **Part 6** — Monthly budgets, category budgets, budget warnings, and
 > savings goals with contribution tracking.
-> The next phase will add recurring transactions, subscription tracking,
-> income scheduling, and reminders.
+> **Part 7** — Recurring transactions, subscription tracking, automatic
+> generation with duplicate protection, and upcoming-payment reminders.
+> The next phase will add export/backup, notifications and polish.
 
 ## Features
+
+### Recurring transactions & subscriptions (Part 7)
+
+- **Recurring definitions** — create income or expense transactions that
+  repeat Daily, Weekly, Monthly, or Yearly, with start date, next due date,
+  category, vendor, notes, and Active/Paused status. Stored separately from
+  real transactions (`et_recurring_v1`).
+- **Automatic generation** — `processRecurringTransactions()` turns due
+  recurring items into real transactions through the existing
+  `addTransaction()` path, so they instantly flow into the Dashboard, Reports,
+  Budgets, and Google Sheets sync. Safe to run repeatedly.
+- **Duplicate prevention** — each recurrence period is generated exactly once,
+  guarded by the `recurringId` + date link on generated transactions AND by
+  advancing `nextDueDate` after processing.
+- **Safe catch-up** — missed periods (e.g. the app was closed for weeks) are
+  generated with a per-item limit of 12 per cycle, with a warning when the
+  limit is hit; remaining periods continue on the next cycle.
+- **Reliable due dates** — `calculateNextDueDate()` handles month-ends (31 Jan
+  → 28 Feb → 31 Mar) and leap years (29 Feb only lands on leap years).
+- **Upcoming payments** — an Upcoming section groups due items into Today,
+  Next 7 Days, Next 30 Days (plus Overdue), and the Dashboard shows a compact
+  Upcoming Payments widget with a View All link.
+- **Subscriptions** — mark an expense as a subscription; the Subscriptions tab
+  shows Active count, total monthly cost (yearly/weekly/daily converted to an
+  estimated monthly equivalent, clearly labelled), and upcoming payments this
+  month.
+- **Pause & Resume** — paused items never generate; resuming with a valid
+  future due date continues normally.
+- **Edit & Delete** — editing affects only future generations; deleting asks
+  for confirmation and keeps all historical transactions.
+- **Validation** — empty titles, invalid/zero amounts, missing frequencies, and
+  invalid dates are rejected with clear messages.
 
 ### Reports & analytics (Part 5)
 
@@ -237,13 +270,14 @@ python -m http.server 8000
 /js/googleSheets.js  Google Sheets sync layer (config, test, send/update/delete, retries)
 /js/reports.js      Pure calculation engine (overview, category breakdowns, trends, insights)
 /js/budgets.js      Budgets & goals domain logic (monthly/category limits, goals, validation)
+/js/recurring.js    Recurring transactions & subscriptions (schedules, due-date math, processing)
 /js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts, sheets, reports) + Chart.js management
 /js/app.js         Bootstrap, routing, validation, event wiring
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → transactions → expenses → parser → googleSheets → reports → budgets → ui → app`).
+(`storage → transactions → expenses → parser → googleSheets → reports → budgets → recurring → ui → app`).
 Chart.js (loaded from CDN before any script) provides the charting for the
 Reports page. Classic scripts (not ES modules) are used so the app runs
 correctly even when opened directly from the file system. All writes go through
@@ -289,9 +323,8 @@ Refund · Other Income
 
 ## Roadmap (not built yet)
 
-Recurring transactions & subscription tracking · income scheduling ·
-due-date reminders · better Google Sheets reporting · PDF export · Settings ·
-Authentication / cloud sync.
+Export / backup · notifications & polish · better Google Sheets reporting ·
+PDF export · Settings · Authentication / cloud sync.
 
 ---
 

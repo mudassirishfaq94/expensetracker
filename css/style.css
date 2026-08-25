@@ -647,6 +647,77 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   .budgets-layout { grid-template-columns: 1fr; }
 }
 
+/* --------------------------- Recurring & subs --------------------------- */
+.recurring-topbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.status-tabs { margin: 0 0 16px; }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.status-badge.is-active { color: var(--success); background: var(--success-soft); }
+.status-badge.is-paused { color: #8A6A1E; background: #F7F0DA; }
+.status-badge.is-sub { color: #3A5573; background: #E4EBF2; }
+.status-badge.is-freq { color: var(--muted); background: #EEEAE0; }
+
+.recurring-card {
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+}
+.recurring-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.recurring-card-title { font-size: 14.5px; font-weight: 700; color: var(--ink); margin-top: 8px; }
+.recurring-card-title.sub-title { margin-top: 0; }
+.recurring-card-meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.recurring-card-amount { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.recurring-card-amount.is-income { color: var(--success); }
+.recurring-card-amount.is-expense { color: var(--danger); }
+.recurring-card-due { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.due-rel { color: var(--gold); font-weight: 600; }
+.recurring-card-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.recurring-empty { padding: 6px 2px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.recurring-empty .btn { align-self: flex-start; }
+
+.upcoming-group-head {
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--muted); margin: 12px 2px 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line);
+}
+.upcoming-group-head:first-child { margin-top: 0; }
+.upcoming-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 2px; border-bottom: 1px solid var(--line);
+}
+.upcoming-row:last-child { border-bottom: 0; }
+.upcoming-main { min-width: 0; }
+.upcoming-title { font-size: 13.5px; font-weight: 600; color: var(--ink); display: block; }
+.upcoming-date { font-size: 12px; color: var(--muted); }
+.upcoming-amt { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 13.5px; white-space: nowrap; }
+.upcoming-amt.is-income { color: var(--success); }
+.upcoming-amt.is-expense { color: var(--danger); }
+
+.subs-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin-bottom: 16px;
+}
+.subs-stat {
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px 16px; text-align: center;
+}
+.subs-stat-value { display: block; font-size: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.subs-stat-label { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+.checkbox-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+}
+.checkbox-label input { width: auto; }
+
+@media (max-width: 560px) {
+  .subs-summary { grid-template-columns: 1fr; }
+}
+
 /* ------------------------------- Filters ------------------------------- */
 .filters {
   display: flex; gap: 10px; flex-wrap: wrap; align-items: center;

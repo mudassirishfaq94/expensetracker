@@ -14,6 +14,7 @@
   var sheets = ET.sheets;
   var reports = ET.reports;
   var budgets = ET.budgets;
+  var recurring = ET.recurring;
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function el(id) { return document.getElementById(id); }
@@ -99,6 +100,16 @@
   function formatPct(p) {
     if (p == null || isNaN(Number(p))) return "0%";
     return (Math.round(Number(p) * 100) / 100) + "%";
+  }
+
+  function daysUntil(dateStr) {
+    if (!dateStr) return 0;
+    var parts = dateStr.split("-");
+    if (parts.length !== 3) return 0;
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    var now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return Math.round((d - now) / 86400000);
   }
 
   function badge(category) {
@@ -622,6 +633,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("view-sheets").hidden = view !== "sheets";
       el("view-reports").hidden = view !== "reports";
       el("view-budgets").hidden = view !== "budgets";
+      el("view-recurring").hidden = view !== "recurring";
 
       var titles = {
         dashboard: { title: "Dashboard", eyebrow: "Overview" },
@@ -630,7 +642,8 @@ openConfirm: function (message, title, confirmLabel) {
         expenses: { title: "Expenses", eyebrow: "Outgoing money" },
         sheets: { title: "Google Sheets", eyebrow: "Cloud backup & sync" },
         reports: { title: "Reports", eyebrow: "Analytics & insights" },
-        budgets: { title: "Budgets & Goals", eyebrow: "Limits & savings targets" }
+        budgets: { title: "Budgets & Goals", eyebrow: "Limits & savings targets" },
+        recurring: { title: "Recurring", eyebrow: "Scheduled income & expenses" }
       };
       var key = navKey || view;
       var meta = titles[key] || titles.transactions;
@@ -1235,6 +1248,255 @@ openConfirm: function (message, title, confirmLabel) {
         o.value = cat; o.textContent = cat; sel.appendChild(o);
       });
       sel.value = options.indexOf(current) !== -1 ? current : "";
+    },
+
+    /* -------------------- RECURRING & SUBSCRIPTIONS -------------------- */
+
+    frequencyLabel: function (freq) {
+      var map = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" };
+      return map[freq] || "Monthly";
+    },
+
+    dueRelativeLabel: function (daysToDue) {
+      if (daysToDue < 0) return "Overdue";
+      if (daysToDue === 0) return "Due today";
+      if (daysToDue === 1) return "Tomorrow";
+      return "In " + daysToDue + " days";
+    },
+
+    recurringCardHTML: function (def) {
+      var typeClass = def.type === "income" ? "income" : "expense";
+      var statusBadge = def.status === "paused"
+        ? '<span class="status-badge is-paused">Paused</span>'
+        : '<span class="status-badge is-active">Active</span>';
+      var subBadge = def.isSubscription ? '<span class="status-badge is-sub">Subscription</span>' : "";
+      var review = def.needsReview
+        ? '<p class="budget-alert is-warn">Some older periods were skipped (catch-up limit). Review your history.</p>'
+        : "";
+      var dueDate = def.nextDueDate ? formatDate(def.nextDueDate) : "—";
+      var html = '<div class="recurring-card">';
+      html += '<div class="recurring-card-head">' +
+        '<span class="type-badge ' + typeClass + '"><span class="type-sign ' + typeClass + '" aria-hidden="true">' + (def.type === "income" ? "+" : "−") + '</span> ' + (def.type === "income" ? "Income" : "Expense") + "</span>" +
+        '<span class="status-badge is-freq">' + this.frequencyLabel(def.frequency) + "</span>" +
+        statusBadge + subBadge +
+        "</div>";
+      html += '<div class="recurring-card-title">' + esc(def.title) + "</div>";
+      html += '<div class="recurring-card-meta">' +
+        [def.category, def.vendor, def.isSubscription ? "" : null].filter(Boolean).join(" &middot; ") +
+        "</div>";
+      html += '<div class="recurring-card-amount ' + (def.type === "income" ? "is-income" : "is-expense") + '">' +
+        (def.type === "income" ? "+ " : "− ") + formatCurrency(def.amount) + "</div>";
+      html += '<div class="recurring-card-due">Next due: ' + dueDate +
+        (def.nextDueDate ? ' <span class="due-rel">' + this.dueRelativeLabel(daysUntil(def.nextDueDate)) + "</span>" : "") +
+        "</div>";
+      html += review;
+      html += '<div class="recurring-card-actions">' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-edit-recurring="' + esc(def.id) + '">Edit</button>' +
+        (def.status === "paused"
+          ? '<button type="button" class="btn btn-primary btn-sm" data-toggle-recurring="' + esc(def.id) + '">Resume</button>'
+          : '<button type="button" class="btn btn-ghost btn-sm" data-toggle-recurring="' + esc(def.id) + '">Pause</button>') +
+        '<button type="button" class="btn btn-ghost btn-sm" data-delete-recurring="' + esc(def.id) + '">Delete</button>' +
+        "</div>";
+      html += "</div>";
+      return html;
+    },
+
+    renderRecurringPage: function () {
+      var defs = recurring.getRecurring();
+      var activeCount = defs.filter(function (d) { return d.status === "active"; }).length;
+      el("recurring-count").textContent = defs.length + (defs.length === 1 ? " definition" : " definitions") + " · " + activeCount + " active";
+
+      this.renderUpcomingPayments();
+
+      var list = el("recurring-list");
+      list.innerHTML = defs.length
+        ? defs.map(this.recurringCardHTML, this).join("")
+        : '<div class="recurring-empty"><p class="budgets-hint">No recurring transactions yet.</p>' +
+          '<button class="btn btn-primary" data-action="open-recurring-add" type="button">Add Your First Recurring Transaction</button></div>';
+
+      this.renderSubscriptionsPage();
+    },
+
+    renderUpcomingPayments: function () {
+      var rows = recurring.upcomingPayments();
+      var box = el("upcoming-payments");
+      if (!rows.length) {
+        box.innerHTML = '<p class="budgets-hint">No upcoming recurring payments.</p>';
+        return;
+      }
+      var groups = [];
+      var overdue = rows.filter(function (r) { return r.daysToDue < 0; });
+      var today = rows.filter(function (r) { return r.daysToDue === 0; });
+      var week = rows.filter(function (r) { return r.daysToDue >= 1 && r.daysToDue <= 7; });
+      var month = rows.filter(function (r) { return r.daysToDue > 7; });
+      if (overdue.length) groups.push({ label: "Overdue", rows: overdue });
+      if (today.length) groups.push({ label: "Today", rows: today });
+      if (week.length) groups.push({ label: "Next 7 days", rows: week });
+      if (month.length) groups.push({ label: "Next 30 days", rows: month });
+      box.innerHTML = groups.map(function (g) {
+        var head = '<div class="upcoming-group-head">' + esc(g.label) + "</div>";
+        var items = g.rows.map(function (r) {
+          return (
+            '<div class="upcoming-row">' +
+              '<div class="upcoming-main"><span class="upcoming-title">' + esc(r.title) + "</span>" +
+              '<span class="upcoming-date">' + formatDate(r.dueDate) + " · " + this.dueRelativeLabel(r.daysToDue) + "</span></div>" +
+              '<span class="upcoming-amt ' + (r.type === "income" ? "is-income" : "is-expense") + '">' +
+                (r.type === "income" ? "+ " : "− ") + formatCurrency(r.amount) + "</span>" +
+            "</div>"
+          );
+        }, this).join("");
+        return head + items;
+      }, this).join("");
+    },
+
+    renderSubscriptionsPage: function () {
+      var defs = recurring.getRecurring().filter(function (d) { return d.isSubscription && d.type === "expense"; });
+      var summary = recurring.subscriptionSummary();
+      var sumBox = el("subs-summary");
+      sumBox.innerHTML =
+        '<div class="subs-stat"><span class="subs-stat-value">' + summary.activeCount + "</span><span class=\"subs-stat-label\">Active subscriptions</span></div>" +
+        '<div class="subs-stat"><span class="subs-stat-value">' + formatCurrency(summary.monthlyCost) + "</span><span class=\"subs-stat-label\">Monthly cost" + (summary.hasEstimatedMonthly ? " (est.)" : "") + "</span></div>" +
+        '<div class="subs-stat"><span class="subs-stat-value">' + formatCurrency(summary.upcomingCost) + "</span><span class=\"subs-stat-label\">Upcoming this month</span></div>";
+
+      var list = el("subscriptions-list");
+      if (!defs.length) {
+        list.innerHTML = '<div class="recurring-empty"><p class="budgets-hint">No subscriptions tracked yet.</p>' +
+          '<button class="btn btn-primary" data-action="open-recurring-add" type="button">Add Subscription</button></div>';
+        return;
+      }
+      list.innerHTML = defs.map(function (d) {
+        var eq = d.frequency !== "monthly" ? ' <span class="due-rel">≈ ' + formatCurrency(recurring.monthlyEquivalent(d.amount, d.frequency)) + "/mo</span>" : "";
+        var html = '<div class="recurring-card">';
+        html += '<div class="recurring-card-head"><span class="recurring-card-title sub-title">' + esc(d.title) + "</span>" +
+          (d.status === "paused" ? '<span class="status-badge is-paused">Paused</span>' : '<span class="status-badge is-active">Active</span>') + "</div>";
+        html += '<div class="recurring-card-meta">' + esc(d.category) + " &middot; " + this.frequencyLabel(d.frequency) + "</div>";
+        html += '<div class="recurring-card-amount is-expense">− ' + formatCurrency(d.amount) + eq + "</div>";
+        html += '<div class="recurring-card-due">Next payment: ' + (d.nextDueDate ? formatDate(d.nextDueDate) : "—") +
+          (d.nextDueDate ? ' <span class="due-rel">' + this.dueRelativeLabel(daysUntil(d.nextDueDate)) + "</span>" : "") + "</div>";
+        html += '<div class="recurring-card-actions">' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-edit-recurring="' + esc(d.id) + '">Edit</button>' +
+          (d.status === "paused"
+            ? '<button type="button" class="btn btn-primary btn-sm" data-toggle-recurring="' + esc(d.id) + '">Resume</button>'
+            : '<button type="button" class="btn btn-ghost btn-sm" data-toggle-recurring="' + esc(d.id) + '">Pause</button>') +
+          '<button type="button" class="btn btn-ghost btn-sm" data-delete-recurring="' + esc(d.id) + '">Delete</button>' +
+          "</div>";
+        html += "</div>";
+        return html;
+      }, this).join("");
+    },
+
+    renderDashboardUpcoming: function () {
+      var panel = el("dashboard-upcoming");
+      var body = el("dash-upcoming-body");
+      if (!panel || !body) return;
+      var rows = recurring.upcomingPayments();
+      if (!rows.length) { panel.style.display = "none"; return; }
+      panel.style.display = "";
+      body.innerHTML = rows.slice(0, 4).map(function (r) {
+        return (
+          '<li class="recent-item">' +
+            '<span class="recent-avatar" style="background:var(--paper-2);color:var(--muted)">' + esc(initials(r.title)) + "</span>" +
+            '<span class="recent-main"><span class="recent-title">' + esc(r.title) + "</span>" +
+            '<span class="recent-meta">' + this.dueRelativeLabel(r.daysToDue) + "</span></span>" +
+            '<span class="recent-amt ' + (r.type === "income" ? "is-income" : "is-expense") + '">' +
+              (r.type === "income" ? "+ " : "− ") + formatCurrency(r.amount) + "</span>" +
+          "</li>"
+        );
+      }, this).join("");
+    },
+
+    /* -------------------- RECURRING DRAWER -------------------- */
+
+    populateRecurringCategories: function (type, keepValue) {
+      var sel = el("rf-category");
+      if (!sel) return;
+      var cats = storage.categoriesFor(type);
+      var current = keepValue != null ? keepValue : sel.value;
+      var stillValid = current === "" || cats.indexOf(current) !== -1;
+      sel.innerHTML = '<option value="">Select a category</option>';
+      cats.forEach(function (cat) {
+        var o = document.createElement("option");
+        o.value = cat; o.textContent = cat; sel.appendChild(o);
+      });
+      sel.value = stillValid ? current : "";
+      return sel.value;
+    },
+
+    setRecurringFormType: function (type, keepValue) {
+      var t = storage.normalizeType(type);
+      document.querySelectorAll("[data-rf-type]").forEach(function (btn) {
+        var on = btn.getAttribute("data-rf-type") === t;
+        btn.classList.toggle("is-active", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      var vendorLabel = el("rf-vendor-label");
+      if (vendorLabel) vendorLabel.textContent = t === "income" ? "Source" : "Vendor / source";
+      return this.populateRecurringCategories(t, keepValue);
+    },
+
+    openRecurringDrawer: function (mode, def) {
+      var drawer = el("recurring-drawer");
+      var overlay = el("recurring-drawer-overlay");
+      var form = el("recurring-form");
+      form.reset();
+      el("rf-error").hidden = true;
+      el("rf-error").textContent = "";
+
+      if (mode === "edit" && def) {
+        el("recurring-drawer-eyebrow").textContent = "Editing";
+        el("recurring-drawer-title").textContent = "Edit recurring transaction";
+        el("btn-save-recurring").textContent = "Save changes";
+        el("rf-id").value = def.id;
+        this.setRecurringFormType(def.type, def.category);
+        el("rf-title").value = def.title || "";
+        el("rf-amount").value = def.amount != null ? def.amount : "";
+        el("rf-category").value = def.category || "";
+        el("rf-vendor").value = def.vendor || "";
+        el("rf-frequency").value = def.frequency || "monthly";
+        el("rf-start-date").value = def.startDate || "";
+        el("rf-next-due").value = def.nextDueDate || "";
+        el("rf-subscription").checked = !!def.isSubscription;
+        el("rf-status").value = def.status === "paused" ? "paused" : "active";
+        el("rf-notes").value = def.notes || "";
+      } else {
+        el("recurring-drawer-eyebrow").textContent = "New recurring";
+        el("recurring-drawer-title").textContent = "Add recurring transaction";
+        el("btn-save-recurring").textContent = "Save recurring";
+        el("rf-id").value = "";
+        this.setRecurringFormType("expense");
+        var todayStr = expenses._util.todayKey();
+        el("rf-start-date").value = todayStr;
+        el("rf-next-due").value = todayStr;
+        el("rf-status").value = "active";
+      }
+
+      overlay.hidden = false;
+      drawer.setAttribute("aria-hidden", "false");
+      void drawer.offsetWidth;
+      overlay.classList.add("is-shown");
+      drawer.classList.add("is-open");
+      setTimeout(function () { el("rf-title").focus(); }, 120);
+    },
+
+    closeRecurringDrawer: function () {
+      var drawer = el("recurring-drawer");
+      var overlay = el("recurring-drawer-overlay");
+      drawer.classList.remove("is-open");
+      overlay.classList.remove("is-shown");
+      drawer.setAttribute("aria-hidden", "true");
+      setTimeout(function () { overlay.hidden = true; }, 300);
+    },
+
+    isRecurringDrawerOpen: function () {
+      return el("recurring-drawer").classList.contains("is-open");
+    },
+
+    setRecurringTab: function (tab) {
+      document.querySelectorAll("[data-rtab]").forEach(function (btn) {
+        btn.classList.toggle("is-active", btn.getAttribute("data-rtab") === tab);
+      });
+      el("rtab-recurring").hidden = tab !== "recurring";
+      el("rtab-subscriptions").hidden = tab !== "subscriptions";
     },
   };
 

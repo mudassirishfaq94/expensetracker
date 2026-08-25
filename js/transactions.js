@@ -54,7 +54,8 @@
       category: String(input.category == null ? "" : input.category).trim(),
       vendor: String(input.vendor == null ? "" : input.vendor).trim(),
       date: String(input.date == null ? "" : input.date).trim(),
-      notes: String(input.notes == null ? "" : input.notes).trim()
+      notes: String(input.notes == null ? "" : input.notes).trim(),
+      recurringId: String(input.recurringId == null ? "" : input.recurringId).trim()
     };
   }
 
@@ -72,7 +73,9 @@
       createdAt: createdAt,
       updatedAt: updatedAt,
       /* Part 4: Google Sheets sync state. Fresh records need syncing. */
-      syncStatus: "pending"
+      syncStatus: "pending",
+      /* Part 7: link to the recurring definition that generated this. */
+      recurringId: clean.recurringId || ""
     };
   }
 

@@ -19,6 +19,8 @@
   /* Budgets & goals (Part 6). */
   var BUDGETS_KEY = "et_budgets_v1";
   var GOALS_KEY = "et_goals_v1";
+  /* Recurring transactions & subscriptions (Part 7). */
+  var RECURRING_KEY = "et_recurring_v1";
   var DEFAULT_CURRENCY = "AED";
 
   var TYPES = ["expense", "income"];
@@ -331,6 +333,27 @@
         return true;
       } catch (err) {
         console.error("[Ledger] Could not save goals:", err);
+        return false;
+      }
+    },
+
+    /* ---- Recurring transactions & subscriptions (Part 7) ---- */
+    getRecurring: function () {
+      try {
+        var raw = global.localStorage.getItem(RECURRING_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        console.error("[Ledger] Could not read recurring transactions:", err);
+        return null;
+      }
+    },
+
+    saveRecurring: function (list) {
+      try {
+        global.localStorage.setItem(RECURRING_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not save recurring transactions:", err);
         return false;
       }
     },
