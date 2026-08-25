@@ -1,28 +1,59 @@
-# Ledger — Expense Tracker (Part 1: Core Foundation)
+# Ledger — Personal Finance Tracker
 
-A calm, local-first expense tracker. This is **Part 1** of a larger project: a
-fully working frontend foundation that stores expenses in the browser via
-`localStorage`. No backend, no accounts, no external services — your data never
-leaves the browser.
+A calm, local-first income and expense tracker. Tracks both income and expense
+transactions entirely in the browser via `localStorage`. No backend, no
+accounts, no external services — your data never leaves the browser.
 
-> Later phases will add natural-language entry ("I bought sugar from Carrefour
-> for 12 AED"), Google Sheets sync, reports, and settings. None of that is built
-> yet — this phase is deliberately scoped to a solid, expandable core.
+> Completed phases:
+> **Part 1** — expense-only core foundation (dashboard, CRUD, filters).
+> **Part 2** — income + expense transaction system with a financial summary.
+> The next phase (Part 3) will add natural-language transaction entry; Google
+> Sheets sync, reports, and settings are planned later.
 
 ## Features
 
-- **Dashboard** with live totals: spent this month, today's spending, total
-  transactions, largest expense, plus a spending-by-category breakdown and a
-  recent-activity feed. Everything recomputes automatically on any change.
-- **Add / edit expenses** through a slide-in form with inline validation
-  (title, amount > 0, category, and date are required).
-- **Expense list** as a sortable table on desktop and cards on mobile, always
-  newest-first, with per-row edit and delete.
-- **Delete** with a confirmation dialog.
-- **Search & filter** instantly by title/store, category, and month.
-- **Sample data** loadable on demand (never auto-seeded, so once you delete it,
-  it stays gone).
-- **Persistence** — refresh the page and everything is still there.
+### Transactions (income + expenses)
+
+- **Unified transaction system** — every record is an income or expense.
+  Legacy Part 1 expense data is automatically migrated (missing `type` is
+  treated as `expense`), so nothing is lost.
+- **Add / edit / delete** income and expenses through a slide-in form with
+  inline validation (title, amount > 0, category, and date are required).
+- **Transaction type selector** — toggle between Expense (default) and Income;
+  the category list switches automatically (10 expense categories, 8 income
+  categories).
+- **Edit both types** — load the correct type and category list, and freely
+  change a transaction between Expense and Income without losing data.
+- **Transaction list** — both income and expenses shown together in a table on
+  desktop and cards on mobile, always newest-first (same-date ties broken by
+  `createdAt`). Each row shows the type badge, date, title, category,
+  store/source, signed amount, and edit/delete actions.
+- **Search & filters** — instant search (title/vendor), type filter
+  (All / Income / Expenses), category filter, and month filter. All filters
+  combine (e.g. Income → Salary → August 2026).
+- **Sample data** loadable on demand (income + expenses). Never auto-seeded,
+  so once you delete it, it stays gone.
+
+### Dashboard
+
+- **Total balance** — income minus expenses, all time.
+- **Total income** and **Total expenses** cards with plus/minus indicators.
+- **This month's balance** — this month's income minus expenses.
+- **Today's spending** — only today's expenses.
+- **Total transactions** counter (income and expense counts).
+- **Financial summary** — income vs expenses (total income, total expenses,
+  net balance) and current-month summary (income this month, expenses this
+  month, remaining balance this month). All calculations are date-accurate.
+- **Spending by category** (current month) and a **recent activity** feed.
+- Everything recomputes automatically whenever a transaction is added, edited,
+  or deleted.
+
+### Navigation
+
+- Dashboard, Transactions, Income, Expenses, plus Reports / Google Sheets /
+  Settings marked "Soon".
+- Income and Expenses open the single Transactions page pre-filtered to that
+  type — one transaction system, no duplicate pages.
 
 ## Tech
 
@@ -47,29 +78,34 @@ python -m http.server 8000
 ## Project structure
 
 ```
-/index.html        Markup: sidebar, dashboard, expenses view, drawer, modal
+/index.html        Markup: sidebar, dashboard, transactions view, drawer, modal
 /css/style.css     Full design system (tokens, components, responsive)
-/js/storage.js     localStorage layer, id generation, sample data
-/js/expenses.js    CRUD orchestration, filtering, sorting, statistics
+/js/storage.js     localStorage layer, migration, id generation, sample data
+/js/transactions.js  Domain logic: CRUD, filtering, sorting, statistics
+/js/expenses.js    Compatibility shim (aliases ET.expenses to ET.transactions)
 /js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts)
 /js/app.js         Bootstrap, routing, validation, event wiring
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → expenses → ui → app`). Classic scripts (not ES modules) are used so
-the app runs correctly even when opened directly from the file system.
+(`storage → transactions → expenses → ui → app`). Classic scripts (not ES
+modules) are used so the app runs correctly even when opened directly from the
+file system. All writes go through the single `addTransaction()` function in
+`transactions.js`, so a future natural-language parser can reuse the same
+central save path.
 
 ## Data model
 
 ```js
 {
   id: "unique-id",
-  title: "Sugar",
-  amount: 12,
+  type: "income" | "expense",
+  title: "Monthly Salary",
+  amount: 5000,
   currency: "AED",
-  category: "Food & Groceries",
-  vendor: "Carrefour",
+  category: "Salary",
+  vendor: "Company Name",
   date: "2026-08-25",
   notes: "",
   createdAt: 1690000000000,
@@ -77,15 +113,20 @@ the app runs correctly even when opened directly from the file system.
 }
 ```
 
+IDs are unique, amounts are stored as numbers, and dates use `YYYY-MM-DD`.
+
 ## Categories
 
-Food & Groceries · Transport · Shopping · Bills · Entertainment · Health ·
-Education · Other
+**Expenses** — Food & Groceries · Transport · Shopping · Bills · Entertainment ·
+Health · Education · Rent · Travel · Other
 
-## Roadmap (not in Part 1)
+**Income** — Salary · Freelance · Business · Investment · Rental Income · Gift ·
+Refund · Other Income
 
-Natural-language expense entry · Google Sheets integration · Reports & charts ·
-Settings · Authentication / cloud sync.
+## Roadmap (not built yet)
+
+Part 3: Natural-language transaction input · Google Sheets integration ·
+Reports & charts · Settings · Authentication / cloud sync.
 
 ---
 
