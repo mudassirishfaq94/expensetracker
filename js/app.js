@@ -1,6 +1,6 @@
 /* =========================================================================
    app.js — bootstrap & event wiring
-   Ties storage + expenses + ui together: routing, form submit, edit/delete,
+   Ties storage + transactions + ui together: routing, form submit, edit/delete,
    live filtering, sample data. This is the only file that owns app state
    (the current filter values) and orchestrates re-renders.
 
@@ -10,7 +10,6 @@
   "use strict";
 
   var ET = (global.ET = global.ET || {});
-  var storage = ET.storage;
   var expenses = ET.expenses;
   var ui = ET.ui;
 
@@ -18,18 +17,20 @@
 
   var state = {
     view: "dashboard",
-    filters: { search: "", category: "", month: "" },
+    navKey: "dashboard",
+    filters: { search: "", category: "", month: "", type: "all" },
     pendingDeleteId: null
   };
 
-  /* -------- central re-render: reads storage, repaints everything -------- */
   function refresh(opts) {
     opts = opts || {};
     var all = expenses.all();
 
-    // keep the month filter options in sync with the data
     var monthValue = ui.populateMonthFilter(all, state.filters.month);
     state.filters.month = monthValue;
+    var catValue = ui.populateFilterCategories(state.filters.type, state.filters.category);
+    state.filters.category = catValue;
+    ui.setTypeFilterChips(state.filters.type);
 
     ui.renderDashboard(all);
 
@@ -46,18 +47,52 @@
     }
   }
 
-  /* ---------------------------- routing ---------------------------- */
-  function goToView(view) {
-    state.view = view;
-    ui.setView(view);
-    closeSidebar();
-    if (view === "dashboard") refresh({ animateDashboard: true });
+  function navKeyForFilters() {
+    if (state.view === "dashboard") return "dashboard";
+    if (state.filters.type === "income") return "income";
+    if (state.filters.type === "expense") return "expenses";
+    return "transactions";
   }
 
-  /* ------------------------- form submit --------------------------- */
+  function goToView(view) {
+    if (view === "income") {
+      state.view = "transactions";
+      state.navKey = "income";
+      state.filters.type = "income";
+      ui.setView("transactions", "income");
+      closeSidebar();
+      refresh();
+      return;
+    }
+    if (view === "expenses") {
+      state.view = "transactions";
+      state.navKey = "expenses";
+      state.filters.type = "expense";
+      ui.setView("transactions", "expenses");
+      closeSidebar();
+      refresh();
+      return;
+    }
+    if (view === "transactions") {
+      state.view = "transactions";
+      state.navKey = "transactions";
+      state.filters.type = "all";
+      ui.setView("transactions", "transactions");
+      closeSidebar();
+      refresh();
+      return;
+    }
+    state.view = "dashboard";
+    state.navKey = "dashboard";
+    ui.setView("dashboard", "dashboard");
+    closeSidebar();
+    refresh({ animateDashboard: true });
+  }
+
   function handleSubmit(e) {
     e.preventDefault();
     var payload = {
+      type: el("field-type").value,
       title: el("field-title").value,
       amount: el("field-amount").value,
       category: el("field-category").value,
@@ -74,20 +109,18 @@
 
     var id = el("field-id").value;
     if (id) {
-      expenses.update(id, payload);
+      expenses.updateTransaction(id, payload);
       ui.closeDrawer();
       refresh();
-      ui.toast("Expense updated");
+      ui.toast("Transaction updated");
     } else {
-      expenses.create(payload);
+      expenses.addTransaction(payload);
       ui.closeDrawer();
-      // the hero number counts up on its own, which reads as "it landed"
       refresh();
-      ui.toast("Expense added");
+      ui.toast(payload.type === "income" ? "Income added" : "Expense added");
     }
   }
 
-  /* --------------------- edit / delete (delegated) --------------------- */
   function handleListClick(e) {
     var editBtn = e.target.closest("[data-edit]");
     if (editBtn) {
@@ -109,22 +142,25 @@
 
   function confirmDelete() {
     if (!state.pendingDeleteId) return;
-    var ok = expenses.remove(state.pendingDeleteId);
+    var ok = expenses.removeTransaction(state.pendingDeleteId);
     state.pendingDeleteId = null;
     ui.closeConfirm();
     if (ok) {
       refresh();
-      ui.toast("Expense deleted", "info");
+      ui.toast("Transaction deleted", "info");
     } else {
-      ui.toast("Could not delete expense", "error");
+      ui.toast("Could not delete transaction", "error");
     }
   }
 
-  /* --------------------------- filtering --------------------------- */
   function applyFilterRender() {
     var all = expenses.all();
+    state.filters.category = ui.populateFilterCategories(state.filters.type, state.filters.category);
+    ui.setTypeFilterChips(state.filters.type);
     var filtered = expenses.filter(all, state.filters);
     ui.renderList(filtered, all.length);
+    state.navKey = navKeyForFilters();
+    ui.setView(state.view === "dashboard" ? "dashboard" : "transactions", state.navKey);
   }
 
   function clearFilters() {
@@ -137,7 +173,11 @@
     applyFilterRender();
   }
 
-  /* --------------------------- sidebar (mobile) --------------------------- */
+  function openAddDrawer() {
+    var defaultType = state.filters.type === "income" ? "income" : "expense";
+    ui.openDrawer("add", null, defaultType);
+  }
+
   function openSidebar() {
     el("sidebar").classList.add("is-open");
     var bd = el("sidebar-backdrop");
@@ -154,47 +194,54 @@
     el("btn-menu").setAttribute("aria-expanded", "false");
   }
 
-  /* ------------------------- sample data --------------------------- */
   function loadSamples() {
     expenses.loadSamples();
     refresh({ animateDashboard: true });
     ui.toast("Sample data loaded");
   }
 
-  /* ----------------------------- wiring ----------------------------- */
   function wire() {
-    // nav
     document.querySelectorAll(".nav-item[data-view]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         goToView(btn.getAttribute("data-view"));
       });
     });
-    // "View all" jump from dashboard recent list
     document.querySelectorAll("[data-view-jump]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         goToView(btn.getAttribute("data-view-jump"));
       });
     });
 
-    // add expense (topbar + mobile bar)
-    el("btn-add-expense").addEventListener("click", function () { ui.openDrawer("add"); });
-    el("btn-add-mobile").addEventListener("click", function () { ui.openDrawer("add"); });
+    el("btn-add-expense").addEventListener("click", openAddDrawer);
+    el("btn-add-mobile").addEventListener("click", openAddDrawer);
 
-    // empty-state + sample actions (there are several such buttons)
     document.querySelectorAll('[data-action="open-add"]').forEach(function (b) {
-      b.addEventListener("click", function () { ui.openDrawer("add"); });
+      b.addEventListener("click", openAddDrawer);
     });
     document.querySelectorAll('[data-action="load-sample"]').forEach(function (b) {
       b.addEventListener("click", loadSamples);
     });
 
-    // drawer controls
     el("expense-form").addEventListener("submit", handleSubmit);
     el("btn-close-drawer").addEventListener("click", ui.closeDrawer);
     el("btn-cancel-drawer").addEventListener("click", ui.closeDrawer);
     el("drawer-overlay").addEventListener("click", ui.closeDrawer);
 
-    // clear a field error as soon as the user starts fixing it
+    document.querySelectorAll("[data-form-type]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var nextType = btn.getAttribute("data-form-type");
+        var keep = el("field-category").value;
+        ui.setFormType(nextType, keep);
+        var f = el("field-category").closest(".field");
+        if (f && f.classList.contains("has-error") && el("field-category").value) {
+          f.classList.remove("has-error");
+          el("field-category").setAttribute("aria-invalid", "false");
+          var msg = el("err-category");
+          if (msg) { msg.hidden = true; msg.textContent = ""; }
+        }
+      });
+    });
+
     ["title", "amount", "category", "date"].forEach(function (key) {
       var input = el("field-" + key);
       var evt = input.tagName === "SELECT" ? "change" : "input";
@@ -209,10 +256,8 @@
       });
     });
 
-    // list actions (event delegation on the container)
     el("expense-list-container").addEventListener("click", handleListClick);
 
-    // confirm modal
     el("btn-confirm-delete").addEventListener("click", confirmDelete);
     el("btn-cancel-delete").addEventListener("click", function () {
       state.pendingDeleteId = null;
@@ -225,7 +270,12 @@
       }
     });
 
-    // filters (instant)
+    document.querySelectorAll("[data-type-filter]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.filters.type = btn.getAttribute("data-type-filter") || "all";
+        applyFilterRender();
+      });
+    });
     el("search-input").addEventListener("input", function (e) {
       state.filters.search = e.target.value;
       applyFilterRender();
@@ -241,11 +291,9 @@
     el("btn-clear-filters").addEventListener("click", clearFilters);
     el("btn-clear-filters-2").addEventListener("click", clearFilters);
 
-    // sidebar (mobile)
     el("btn-menu").addEventListener("click", openSidebar);
     el("sidebar-backdrop").addEventListener("click", closeSidebar);
 
-    // keyboard: Esc closes whatever is open
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
       if (ui.isConfirmOpen()) { state.pendingDeleteId = null; ui.closeConfirm(); }
@@ -254,11 +302,10 @@
     });
   }
 
-  /* ------------------------------ init ------------------------------ */
   function init() {
     ui.populateCategorySelects();
     wire();
-    ui.setView("dashboard");
+    ui.setView("dashboard", "dashboard");
     refresh({ animateDashboard: true });
   }
 

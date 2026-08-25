@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ledger — Expense Tracker</title>
-  <meta name="description" content="A calm, local-first expense tracker." />
+  <title>Ledger — Personal Finance Tracker</title>
+  <meta name="description" content="A calm, local-first income and expense tracker." />
 
   <!-- Fonts: Fraunces (display, used sparingly) + Plus Jakarta Sans (UI/body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -25,7 +25,7 @@
     <span class="mobile-brand">
       <span class="brand-mark" aria-hidden="true">L</span> Ledger
     </span>
-    <button id="btn-add-mobile" class="icon-btn accent" aria-label="Add expense">
+    <button id="btn-add-mobile" class="icon-btn accent" aria-label="Add transaction">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
   </div>
@@ -43,8 +43,16 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6v-9h-6v9zm0-16v5h6V4h-6z" fill="currentColor"/></svg>
           <span>Dashboard</span>
         </button>
-        <button class="nav-item" data-view="expenses" type="button">
+        <button class="nav-item" data-view="transactions" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Transactions</span>
+        </button>
+        <button class="nav-item" data-view="income" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M7 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Income</span>
+        </button>
+        <button class="nav-item" data-view="expenses" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M7 14l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>Expenses</span>
         </button>
 
@@ -87,39 +95,69 @@
         </div>
         <button class="btn btn-primary" id="btn-add-expense" type="button">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-          Add expense
+          Add transaction
         </button>
       </header>
 
       <!-- ===== DASHBOARD VIEW ===== -->
       <section class="view" id="view-dashboard" aria-labelledby="view-title">
-        <!-- Empty state (no expenses at all) -->
         <div class="empty-state" id="dashboard-empty" hidden>
           <div class="empty-illustration" aria-hidden="true">
             <svg viewBox="0 0 64 64" width="64" height="64"><rect x="8" y="16" width="48" height="34" rx="5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M8 26h48" stroke="currentColor" stroke-width="2.5"/><circle cx="17" cy="21" r="1.6" fill="currentColor"/><path d="M18 40h12M18 44h20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           </div>
           <h2>Nothing tracked yet</h2>
-          <p>Add your first expense, or drop in a few samples to see how Ledger looks with data.</p>
+          <p>Add your first income or expense, or drop in a few samples to see how Ledger looks with data.</p>
           <div class="empty-actions">
-            <button class="btn btn-primary" data-action="open-add" type="button">Add an expense</button>
+            <button class="btn btn-primary" data-action="open-add" type="button">Add a transaction</button>
             <button class="btn btn-ghost" data-action="load-sample" type="button">Load sample data</button>
           </div>
         </div>
 
-        <!-- Dashboard content (shown when there is data) -->
         <div id="dashboard-content">
           <div class="stat-grid">
-            <!-- Signature hero card -->
             <article class="hero-card">
               <div class="hero-top">
-                <p class="hero-eyebrow" id="hero-month-label">This month</p>
-                <span class="hero-chip" id="hero-count-chip">0 expenses</span>
+                <p class="hero-eyebrow">Total balance</p>
+                <span class="hero-chip" id="hero-count-chip">0 transactions</span>
               </div>
-              <p class="hero-amount" id="stat-month" data-amount="0">AED 0.00</p>
+              <p class="hero-amount" id="stat-balance" data-amount="0">AED 0.00</p>
               <p class="hero-sub">
-                <span id="stat-today-inline">AED 0.00</span> spent today
+                Income minus expenses · all time
               </p>
               <div class="hero-break" id="hero-breakdown" aria-hidden="true"></div>
+            </article>
+
+            <article class="stat-card">
+              <div class="stat-head">
+                <span class="stat-icon icon-income" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 19V5M7 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <p class="stat-label">Total income</p>
+              </div>
+              <p class="stat-value is-income" id="stat-income">+ AED 0.00</p>
+              <p class="stat-foot" id="stat-income-foot">All time</p>
+            </article>
+
+            <article class="stat-card">
+              <div class="stat-head">
+                <span class="stat-icon icon-expense" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 5v14M7 14l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <p class="stat-label">Total expenses</p>
+              </div>
+              <p class="stat-value is-expense" id="stat-expenses">− AED 0.00</p>
+              <p class="stat-foot" id="stat-expenses-foot">All time</p>
+            </article>
+
+            <article class="stat-card">
+              <div class="stat-head">
+                <span class="stat-icon icon-month" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><rect x="4" y="5" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3v4M16 3v4M4 11h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </span>
+                <p class="stat-label">This month's balance</p>
+              </div>
+              <p class="stat-value" id="stat-month-balance">AED 0.00</p>
+              <p class="stat-foot" id="stat-month-foot">This month</p>
             </article>
 
             <article class="stat-card">
@@ -143,18 +181,46 @@
               <p class="stat-value" id="stat-count">0</p>
               <p class="stat-foot" id="stat-count-foot">All time</p>
             </article>
-
-            <article class="stat-card">
-              <div class="stat-head">
-                <span class="stat-icon icon-largest" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 19V9m7 10V5m7 14v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                </span>
-                <p class="stat-label">Largest expense</p>
-              </div>
-              <p class="stat-value" id="stat-largest">AED 0.00</p>
-              <p class="stat-foot" id="stat-largest-foot">—</p>
-            </article>
           </div>
+
+          <section class="panel summary-panel" aria-labelledby="summary-title">
+            <div class="panel-head">
+              <h2 class="panel-title" id="summary-title">Financial summary</h2>
+              <span class="panel-note" id="summary-month-note">This month</span>
+            </div>
+            <div class="summary-grid">
+              <div class="summary-block">
+                <h3 class="summary-heading">Income vs expenses</h3>
+                <div class="summary-row">
+                  <span class="summary-label"><span class="type-sign income" aria-hidden="true">+</span> Total income</span>
+                  <span class="summary-value is-income" id="sum-income">AED 0.00</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label"><span class="type-sign expense" aria-hidden="true">−</span> Total expenses</span>
+                  <span class="summary-value is-expense" id="sum-expenses">AED 0.00</span>
+                </div>
+                <div class="summary-row is-total">
+                  <span class="summary-label">Net balance</span>
+                  <span class="summary-value" id="sum-balance">AED 0.00</span>
+                </div>
+              </div>
+              <div class="summary-block">
+                <h3 class="summary-heading">Current month summary</h3>
+                <div class="summary-row">
+                  <span class="summary-label"><span class="type-sign income" aria-hidden="true">+</span> Income this month</span>
+                  <span class="summary-value is-income" id="sum-month-income">AED 0.00</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label"><span class="type-sign expense" aria-hidden="true">−</span> Expenses this month</span>
+                  <span class="summary-value is-expense" id="sum-month-expenses">AED 0.00</span>
+                </div>
+                <div class="summary-row is-total">
+                  <span class="summary-label">Remaining balance this month</span>
+                  <span class="summary-value" id="sum-month-balance">AED 0.00</span>
+                </div>
+              </div>
+            </div>
+          </section>
 
           <div class="dash-columns">
             <section class="panel" aria-labelledby="cat-title">
@@ -168,7 +234,7 @@
             <section class="panel" aria-labelledby="recent-title">
               <div class="panel-head">
                 <h2 class="panel-title" id="recent-title">Recent activity</h2>
-                <button class="link-btn" data-view-jump="expenses" type="button">View all</button>
+                <button class="link-btn" data-view-jump="transactions" type="button">View all</button>
               </div>
               <ul class="recent-list" id="recent-activity"></ul>
             </section>
@@ -176,12 +242,17 @@
         </div>
       </section>
 
-      <!-- ===== EXPENSES VIEW ===== -->
+      <!-- ===== TRANSACTIONS VIEW ===== -->
       <section class="view" id="view-expenses" hidden aria-labelledby="view-title">
         <div class="filters">
+          <div class="type-filter" role="group" aria-label="Filter by transaction type">
+            <button type="button" class="chip is-active" data-type-filter="all">All Transactions</button>
+            <button type="button" class="chip" data-type-filter="income">Income</button>
+            <button type="button" class="chip" data-type-filter="expense">Expenses</button>
+          </div>
           <div class="search-wrap">
             <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            <input type="search" id="search-input" class="search-input" placeholder="Search title or store…" autocomplete="off" aria-label="Search expenses" />
+            <input type="search" id="search-input" class="search-input" placeholder="Search title or store…" autocomplete="off" aria-label="Search transactions" />
           </div>
           <select id="filter-category" class="select" aria-label="Filter by category">
             <option value="">All categories</option>
@@ -193,33 +264,30 @@
         </div>
 
         <div class="list-meta">
-          <span id="result-count">0 expenses</span>
+          <span id="result-count">0 transactions</span>
           <span id="result-total" class="result-total"></span>
         </div>
 
-        <!-- List container: table (desktop) / cards (mobile) injected here -->
         <div id="expense-list-container"></div>
 
-        <!-- No expenses at all -->
         <div class="empty-state" id="expenses-empty" hidden>
           <div class="empty-illustration" aria-hidden="true">
             <svg viewBox="0 0 64 64" width="64" height="64"><rect x="10" y="10" width="44" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M20 26h24M20 34h24M20 42h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           </div>
-          <h2>No expenses yet</h2>
-          <p>Track your first purchase to get started, or load some sample data to explore.</p>
+          <h2>No transactions yet</h2>
+          <p>Track your first income or expense to get started, or load some sample data to explore.</p>
           <div class="empty-actions">
-            <button class="btn btn-primary" data-action="open-add" type="button">Add an expense</button>
+            <button class="btn btn-primary" data-action="open-add" type="button">Add a transaction</button>
             <button class="btn btn-ghost" data-action="load-sample" type="button">Load sample data</button>
           </div>
         </div>
 
-        <!-- No results for current filters -->
         <div class="empty-state small" id="expenses-no-results" hidden>
           <div class="empty-illustration" aria-hidden="true">
             <svg viewBox="0 0 64 64" width="56" height="56"><circle cx="28" cy="28" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M40 40l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           </div>
           <h2>No matches</h2>
-          <p>No expenses match your filters. Try a different search or clear the filters.</p>
+          <p>No transactions match your filters. Try a different search or clear the filters.</p>
           <div class="empty-actions">
             <button class="btn btn-ghost" id="btn-clear-filters-2" type="button">Clear filters</button>
           </div>
@@ -234,7 +302,7 @@
     <div class="drawer-head">
       <div>
         <p class="drawer-eyebrow" id="drawer-eyebrow">New entry</p>
-        <h2 class="drawer-title" id="drawer-title">Add expense</h2>
+        <h2 class="drawer-title" id="drawer-title">Add transaction</h2>
       </div>
       <button class="icon-btn" id="btn-close-drawer" type="button" aria-label="Close">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -243,9 +311,24 @@
 
     <form class="drawer-form" id="expense-form" novalidate>
       <input type="hidden" id="field-id" />
+      <input type="hidden" id="field-type" value="expense" />
 
       <div class="field">
-        <label for="field-title">Item <span class="req">*</span></label>
+        <span class="field-label" id="type-label">Type</span>
+        <div class="type-toggle" role="group" aria-labelledby="type-label">
+          <button type="button" class="type-option is-active" data-form-type="expense" aria-pressed="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M7 14l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Expense
+          </button>
+          <button type="button" class="type-option" data-form-type="income" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 19V5M7 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Income
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="field-title">Title <span class="req">*</span></label>
         <input type="text" id="field-title" placeholder="e.g. Sugar" autocomplete="off" maxlength="80" />
         <p class="field-error" id="err-title" hidden></p>
       </div>
@@ -253,7 +336,7 @@
       <div class="field-row">
         <div class="field">
           <label for="field-amount">Amount (AED) <span class="req">*</span></label>
-          <input type="number" id="field-amount" placeholder="0.00" step="0.01" min="0" inputmode="decimal" />
+          <input type="number" id="field-amount" placeholder="0.00" step="0.01" min="0.01" inputmode="decimal" />
           <p class="field-error" id="err-amount" hidden></p>
         </div>
         <div class="field">
@@ -272,7 +355,7 @@
       </div>
 
       <div class="field">
-        <label for="field-vendor">Store / vendor</label>
+        <label for="field-vendor" id="label-vendor">Store / vendor</label>
         <input type="text" id="field-vendor" placeholder="e.g. Carrefour" autocomplete="off" maxlength="80" />
       </div>
 
@@ -283,7 +366,7 @@
 
       <div class="drawer-actions">
         <button type="button" class="btn btn-ghost" id="btn-cancel-drawer">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="btn-save">Save expense</button>
+        <button type="submit" class="btn btn-primary" id="btn-save">Save transaction</button>
       </div>
     </form>
   </aside>
@@ -294,7 +377,7 @@
       <div class="modal-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <h2 class="modal-title" id="confirm-title">Delete this expense?</h2>
+      <h2 class="modal-title" id="confirm-title">Delete this transaction?</h2>
       <p class="modal-text" id="confirm-text">This will permanently remove the entry. This can't be undone.</p>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-delete" type="button">Cancel</button>
@@ -308,6 +391,7 @@
 
   <!-- Scripts: strict load order (globals via window.ET namespace, no modules so file:// works) -->
   <script src="js/storage.js"></script>
+  <script src="js/transactions.js"></script>
   <script src="js/expenses.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>

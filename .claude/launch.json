@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ledger",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "const http=require('http'),fs=require('fs'),path=require('path');const root=process.cwd();const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.json':'application/json','.ico':'image/x-icon','.png':'image/png'};http.createServer(function(req,res){let url=decodeURIComponent(req.url.split('?')[0]);if(url==='/')url='/index.html';const file=path.resolve(root,'.'+url);if(!file.startsWith(root)){res.writeHead(403);return res.end('forbidden');}fs.readFile(file,function(err,data){if(err){res.writeHead(404,{'content-type':'text/plain'});return res.end('404 '+url);}res.writeHead(200,{'content-type':types[path.extname(file).toLowerCase()]||'application/octet-stream','cache-control':'no-store'});res.end(data);});}).listen(4173,function(){console.log('Ledger dev server running at http://localhost:4173');});"
+      ],
+      "port": 4173
+    }
+  ]
+}

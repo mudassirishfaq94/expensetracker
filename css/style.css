@@ -67,6 +67,12 @@ button { font-family: inherit; cursor: pointer; }
 input, select, textarea, button { font-family: inherit; font-size: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
 
+/* The [hidden] attribute must beat component rules that set a display value
+   (.empty-state, .modal-overlay, …) — otherwise a class selector ties with the
+   UA [hidden] rule and the element stays laid out. Without this the invisible
+   confirm overlay covers the page and swallows every click. */
+[hidden] { display: none !important; }
+
 /* -------------------------- App layout shell --------------------------- */
 .app { display: flex; min-height: 100%; }
 
@@ -233,8 +239,8 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   display: grid;
   grid-template-columns: 1.5fr 1fr 1fr;
   grid-template-areas:
-    "hero today count"
-    "hero largest largest";
+    "hero income expenses"
+    "month today count";
   gap: 16px;
   margin-bottom: 22px;
 }
@@ -274,12 +280,14 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .hero-sub { margin-top: 8px; color: #B9CEC2; font-size: 14px; }
 .hero-sub span { color: var(--gold-soft); font-weight: 600; }
 .hero-break {
-  margin-top: auto; padding-top: 20px;
+  margin-top: auto;
   display: flex; height: 10px; border-radius: 999px; overflow: hidden;
   background: rgba(255,255,255,0.10);
   gap: 2px;
 }
 .hero-break .seg { height: 100%; transition: width 0.5s var(--ease); }
+.hero-break .seg-income { background: #7BC49A; }
+.hero-break .seg-expense { background: #E08A78; }
 
 .stat-card {
   background: var(--paper);
@@ -289,9 +297,11 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   box-shadow: var(--shadow-sm);
   display: flex; flex-direction: column;
 }
-.stat-card:nth-of-type(2) { grid-area: today; }
-.stat-card:nth-of-type(3) { grid-area: count; }
-.stat-card:nth-of-type(4) { grid-area: largest; }
+.stat-card:nth-of-type(2) { grid-area: income; }
+.stat-card:nth-of-type(3) { grid-area: expenses; }
+.stat-card:nth-of-type(4) { grid-area: month; }
+.stat-card:nth-of-type(5) { grid-area: today; }
+.stat-card:nth-of-type(6) { grid-area: count; }
 .stat-head { display: flex; align-items: center; gap: 10px; }
 .stat-icon {
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px;
@@ -299,15 +309,39 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 .icon-today { background: #E7F0E9; color: #2C6B45; }
 .icon-count { background: #F2ECDB; color: #8A6A1E; }
-.icon-largest { background: #EDE7F1; color: #6C3F73; }
+.icon-income { background: var(--success-soft); color: var(--success); }
+.icon-expense { background: var(--danger-soft); color: var(--danger); }
+.icon-month { background: #E4EBF2; color: #3A5573; }
 .stat-label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .stat-value {
   font-size: 26px; font-weight: 700; letter-spacing: -0.4px; color: var(--ink);
   margin-top: 12px; font-variant-numeric: tabular-nums;
 }
 .stat-foot { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.is-income { color: var(--success) !important; }
+.is-expense { color: var(--danger) !important; }
 
 /* ---------------------------- Dashboard cols --------------------------- */
+.summary-panel { margin-bottom: 16px; }
+.summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px;
+}
+.summary-heading {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+.summary-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.summary-row:last-child { border-bottom: 0; }
+.summary-row.is-total { padding-top: 14px; }
+.summary-label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.summary-value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.summary-row.is-total .summary-label,
+.summary-row.is-total .summary-value { font-size: 16px; }
+
 .dash-columns {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
 }
@@ -352,6 +386,24 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .filters {
   display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
   margin-bottom: 16px;
+}
+.type-filter {
+  display: flex; gap: 6px; flex-wrap: wrap; width: 100%;
+}
+.chip {
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px; font-weight: 600;
+  transition: background 0.16s var(--ease), border-color 0.16s var(--ease), color 0.16s var(--ease);
+}
+.chip:hover { border-color: var(--muted); }
+.chip.is-active {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: #fff;
 }
 .search-wrap { position: relative; flex: 1; min-width: 220px; }
 .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
@@ -419,7 +471,32 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .cat-entertainment{ --bg:#F7E7E4; --fg:#9A4436; --c:#C86A57; }
 .cat-health       { --bg:#E1F0EE; --fg:#2C6E68; --c:#3E938A; }
 .cat-education    { --bg:#E6E7F5; --fg:#45469A; --c:#6466C4; }
+.cat-rent         { --bg:#F3E8DE; --fg:#7A4A28; --c:#B06A3C; }
+.cat-travel       { --bg:#DDEEF5; --fg:#2A5E75; --c:#3E8AAB; }
 .cat-other        { --bg:#ECE9E1; --fg:#5E5A4E; --c:#8A8474; }
+.cat-salary       { --bg:#E4F1E9; --fg:#1E7A52; --c:#2E9A68; }
+.cat-freelance    { --bg:#E7F3EC; --fg:#246B4A; --c:#3D9A6E; }
+.cat-business     { --bg:#E8F0E6; --fg:#3A6B32; --c:#5A9A4A; }
+.cat-investment   { --bg:#EEF4E2; --fg:#4A6B22; --c:#6A9A38; }
+.cat-rental       { --bg:#E6F4F0; --fg:#2A6B5E; --c:#3E9A88; }
+.cat-gift         { --bg:#F4EEE2; --fg:#6B5222; --c:#9A7A38; }
+.cat-refund       { --bg:#E8F1F4; --fg:#2A5A6B; --c:#3E7A8A; }
+.cat-other-income { --bg:#E9F2EA; --fg:#3A6B45; --c:#5A8A64; }
+
+.type-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.type-badge.income { background: var(--success-soft); color: var(--success); }
+.type-badge.expense { background: var(--danger-soft); color: var(--danger); }
+.type-sign {
+  display: inline-grid; place-items: center;
+  width: 16px; height: 16px; border-radius: 50%;
+  font-size: 12px; font-weight: 700; line-height: 1;
+}
+.type-sign.income { background: var(--success); color: #fff; }
+.type-sign.expense { background: var(--danger); color: #fff; }
 .badge { background: var(--bg); color: var(--fg); }
 .badge .dot { background: var(--c); }
 
@@ -497,7 +574,33 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .drawer-form { padding: 20px 24px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.field label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.field label, .field-label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.type-toggle {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.type-option {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-weight: 600; font-size: 14px;
+  transition: background 0.16s var(--ease), border-color 0.16s var(--ease), color 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+.type-option:hover { border-color: var(--muted); }
+.type-option.is-active[data-form-type="expense"] {
+  background: var(--danger-soft);
+  border-color: #E0B6AC;
+  color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(180,64,46,0.10);
+}
+.type-option.is-active[data-form-type="income"] {
+  background: var(--success-soft);
+  border-color: #B5D6C4;
+  color: var(--success);
+  box-shadow: 0 0 0 3px rgba(30,122,82,0.12);
+}
 .req { color: var(--danger); }
 .field input, .field select, .field textarea {
   width: 100%;
@@ -606,14 +709,16 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "hero hero"
-      "today count"
-      "largest largest";
+      "income expenses"
+      "month today"
+      "count count";
   }
   .dash-columns { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
-  .stat-grid { grid-template-columns: 1fr; grid-template-areas: "hero" "today" "count" "largest"; }
+  .stat-grid { grid-template-columns: 1fr; grid-template-areas: "hero" "income" "expenses" "month" "today" "count"; }
   .field-row { grid-template-columns: 1fr; }
   .toast-container { left: 16px; right: 16px; bottom: 16px; align-items: stretch; }
   .toast { max-width: none; }

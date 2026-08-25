@@ -12,11 +12,9 @@
   var expenses = ET.expenses;
   var storage = ET.storage;
 
-  /* ---------------- tiny helpers ---------------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
   function el(id) { return document.getElementById(id); }
 
-  /* Escape user-supplied text before putting it in innerHTML. */
   function esc(str) {
     if (str == null) return "";
     return String(str)
@@ -27,14 +25,18 @@
       .replace(/'/g, "&#39;");
   }
 
-  /* AED 1,250.00 */
   function formatCurrency(amount) {
     var n = Number(amount) || 0;
     var s = n.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return storage.DEFAULT_CURRENCY + " " + s;
   }
 
-  /* "25 Aug 2026" */
+  function signedCurrency(amount, type) {
+    var abs = Math.abs(Number(amount) || 0);
+    if (type === "income") return "+ " + formatCurrency(abs);
+    return "− " + formatCurrency(abs);
+  }
+
   function formatDate(dateStr) {
     if (!dateStr) return "";
     var parts = dateStr.split("-");
@@ -44,7 +46,6 @@
     return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
   }
 
-  /* "Today", "Yesterday", or "3 days ago" for recency hints. */
   function relativeDay(dateStr) {
     var today = expenses._util.todayKey();
     if (dateStr === today) return "Today";
@@ -67,7 +68,17 @@
     return '<span class="badge ' + slug + '"><span class="dot"></span>' + esc(category) + "</span>";
   }
 
-  /* ---------------- count-up animation for the hero number ---------------- */
+  function typeBadge(type) {
+    if (type === "income") {
+      return '<span class="type-badge income"><span class="type-sign income" aria-hidden="true">+</span> Income</span>';
+    }
+    return '<span class="type-badge expense"><span class="type-sign expense" aria-hidden="true">−</span> Expense</span>';
+  }
+
+  function recordType(record) {
+    return expenses._util.recordType(record);
+  }
+
   var _heroRAF = null;
   function animateHero(node, to) {
     if (!node) return;
@@ -85,11 +96,27 @@
     function step(t) {
       if (start === null) start = t;
       var p = Math.min((t - start) / dur, 1);
-      var eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      var eased = 1 - Math.pow(1 - p, 3);
       node.textContent = formatCurrency(from + (to - from) * eased);
       if (p < 1) _heroRAF = requestAnimationFrame(step);
     }
     _heroRAF = requestAnimationFrame(step);
+  }
+
+  function fillSelectOptions(select, categories, keepValue) {
+    var current = keepValue != null ? keepValue : select.value;
+    var first = select.querySelector('option[value=""]');
+    var placeholder = first ? first.outerHTML : '<option value="">Select a category</option>';
+    select.innerHTML = placeholder;
+    categories.forEach(function (cat) {
+      var o = document.createElement("option");
+      o.value = cat;
+      o.textContent = cat;
+      select.appendChild(o);
+    });
+    var stillValid = current === "" || categories.indexOf(current) !== -1;
+    select.value = stillValid ? current : "";
+    return select.value;
   }
 
   var ui = {
@@ -97,22 +124,54 @@
     formatCurrency: formatCurrency,
     formatDate: formatDate,
 
-    /* Populate the category <select>s (form + filter) once at startup. */
-    populateCategorySelects: function () {
+    populateFormCategories: function (type, keepValue) {
       var formSel = el("field-category");
-      var filterSel = el("filter-category");
-      storage.CATEGORIES.forEach(function (cat) {
-        var o1 = document.createElement("option");
-        o1.value = cat; o1.textContent = cat;
-        formSel.appendChild(o1);
-
-        var o2 = document.createElement("option");
-        o2.value = cat; o2.textContent = cat;
-        filterSel.appendChild(o2);
-      });
+      var cats = storage.categoriesFor(type);
+      return fillSelectOptions(formSel, cats, keepValue);
     },
 
-    /* Rebuild the month filter to reflect months that actually have data. */
+    populateFilterCategories: function (type, keepValue) {
+      var filterSel = el("filter-category");
+      var cats = !type || type === "all"
+        ? storage.allCategories()
+        : storage.categoriesFor(type);
+      var current = keepValue != null ? keepValue : filterSel.value;
+      filterSel.innerHTML = '<option value="">All categories</option>';
+      if (!type || type === "all") {
+        var expGroup = document.createElement("optgroup");
+        expGroup.label = "Expenses";
+        storage.EXPENSE_CATEGORIES.forEach(function (cat) {
+          var o = document.createElement("option");
+          o.value = cat; o.textContent = cat;
+          expGroup.appendChild(o);
+        });
+        var incGroup = document.createElement("optgroup");
+        incGroup.label = "Income";
+        storage.INCOME_CATEGORIES.forEach(function (cat) {
+          var o = document.createElement("option");
+          o.value = cat; o.textContent = cat;
+          incGroup.appendChild(o);
+        });
+        filterSel.appendChild(expGroup);
+        filterSel.appendChild(incGroup);
+      } else {
+        cats.forEach(function (cat) {
+          var o = document.createElement("option");
+          o.value = cat; o.textContent = cat;
+          filterSel.appendChild(o);
+        });
+      }
+      var allowed = !type || type === "all" ? storage.allCategories() : cats;
+      var stillValid = current === "" || allowed.indexOf(current) !== -1;
+      filterSel.value = stillValid ? current : "";
+      return filterSel.value;
+    },
+
+    populateCategorySelects: function () {
+      this.populateFormCategories("expense");
+      this.populateFilterCategories("all");
+    },
+
     populateMonthFilter: function (list, keepValue) {
       var sel = el("filter-month");
       var months = expenses.availableMonths(list);
@@ -123,10 +182,40 @@
         o.value = m.key; o.textContent = m.label;
         sel.appendChild(o);
       });
-      // restore selection if still valid
       var stillValid = current === "" || months.some(function (m) { return m.key === current; });
       sel.value = stillValid ? current : "";
       return sel.value;
+    },
+
+    setTypeFilterChips: function (type) {
+      var value = type || "all";
+      document.querySelectorAll("[data-type-filter]").forEach(function (btn) {
+        btn.classList.toggle("is-active", btn.getAttribute("data-type-filter") === value);
+      });
+    },
+
+    setFormType: function (type, keepCategory) {
+      type = storage.normalizeType(type);
+      el("field-type").value = type;
+      document.querySelectorAll("[data-form-type]").forEach(function (btn) {
+        var on = btn.getAttribute("data-form-type") === type;
+        btn.classList.toggle("is-active", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      var kept = this.populateFormCategories(type, keepCategory);
+      var vendorLabel = el("label-vendor");
+      var vendorInput = el("field-vendor");
+      var titleInput = el("field-title");
+      if (type === "income") {
+        vendorLabel.textContent = "Source";
+        vendorInput.placeholder = "e.g. Company Name";
+        titleInput.placeholder = "e.g. Monthly Salary";
+      } else {
+        vendorLabel.textContent = "Store / vendor";
+        vendorInput.placeholder = "e.g. Carrefour";
+        titleInput.placeholder = "e.g. Sugar";
+      }
+      return kept;
     },
 
     /* -------------------- DASHBOARD -------------------- */
@@ -138,11 +227,23 @@
 
       var s = expenses.stats(list);
 
-      el("hero-month-label").textContent = s.monthLabel;
       el("hero-count-chip").textContent =
-        s.monthCount + (s.monthCount === 1 ? " expense" : " expenses");
-      animateHero(el("stat-month"), s.totalThisMonth);
-      el("stat-today-inline").textContent = formatCurrency(s.todaySpending);
+        s.totalCount + (s.totalCount === 1 ? " transaction" : " transactions");
+      animateHero(el("stat-balance"), s.totalBalance);
+
+      el("stat-income").textContent = signedCurrency(s.totalIncome, "income");
+      el("stat-income-foot").textContent =
+        s.incomeCount + (s.incomeCount === 1 ? " income entry" : " income entries");
+
+      el("stat-expenses").textContent = signedCurrency(s.totalExpenses, "expense");
+      el("stat-expenses-foot").textContent =
+        s.expenseCount + (s.expenseCount === 1 ? " expense" : " expenses");
+
+      var monthBalanceNode = el("stat-month-balance");
+      monthBalanceNode.textContent = formatCurrency(s.monthBalance);
+      monthBalanceNode.classList.toggle("is-income", s.monthBalance > 0);
+      monthBalanceNode.classList.toggle("is-expense", s.monthBalance < 0);
+      el("stat-month-foot").textContent = s.monthLabel;
 
       el("stat-today").textContent = formatCurrency(s.todaySpending);
       el("stat-today-foot").textContent = s.todayCount === 0
@@ -150,18 +251,44 @@
         : s.todayCount + (s.todayCount === 1 ? " expense today" : " expenses today");
 
       el("stat-count").textContent = String(s.totalCount);
-      el("stat-count-foot").textContent = "All time";
+      el("stat-count-foot").textContent =
+        s.incomeCount + " income · " + s.expenseCount + " expenses";
 
-      if (s.largest) {
-        el("stat-largest").textContent = formatCurrency(s.largest.amount);
-        el("stat-largest-foot").textContent = esc(s.largest.title) + " · " + formatDate(s.largest.date);
-      } else {
-        el("stat-largest").textContent = formatCurrency(0);
-        el("stat-largest-foot").textContent = "—";
-      }
+      el("summary-month-note").textContent = s.monthLabel;
+      el("sum-income").textContent = formatCurrency(s.totalIncome);
+      el("sum-expenses").textContent = formatCurrency(s.totalExpenses);
+      el("sum-balance").textContent = formatCurrency(s.totalBalance);
+      el("sum-balance").classList.toggle("is-income", s.totalBalance > 0);
+      el("sum-balance").classList.toggle("is-expense", s.totalBalance < 0);
+      el("sum-month-income").textContent = formatCurrency(s.monthIncome);
+      el("sum-month-expenses").textContent = formatCurrency(s.monthExpenses);
+      el("sum-month-balance").textContent = formatCurrency(s.monthBalance);
+      el("sum-month-balance").classList.toggle("is-income", s.monthBalance > 0);
+      el("sum-month-balance").classList.toggle("is-expense", s.monthBalance < 0);
 
+      this.renderHeroBreakdown(list);
       this.renderCategoryBreakdown(list, s);
       this.renderRecent(list);
+    },
+
+    renderHeroBreakdown: function (list) {
+      var bar = el("hero-breakdown");
+      if (!bar) return;
+      var s = expenses.stats(list);
+      var income = s.totalIncome;
+      var expensesAmt = s.totalExpenses;
+      var total = income + expensesAmt;
+      if (total <= 0) {
+        bar.style.display = "none";
+        bar.innerHTML = "";
+        return;
+      }
+      bar.style.display = "flex";
+      var incomePct = Math.max(2, (income / total) * 100);
+      var expensePct = Math.max(2, (expensesAmt / total) * 100);
+      bar.innerHTML =
+        '<span class="seg seg-income" style="width:' + incomePct + '%" title="Income"></span>' +
+        '<span class="seg seg-expense" style="width:' + expensePct + '%" title="Expenses"></span>';
     },
 
     renderCategoryBreakdown: function (list, s) {
@@ -171,7 +298,7 @@
 
       if (rows.length === 0) {
         container.innerHTML =
-          '<p class="stat-foot" style="padding:6px 2px">Nothing recorded this month yet.</p>';
+          '<p class="stat-foot" style="padding:6px 2px">No expenses recorded this month yet.</p>';
         return;
       }
       var max = rows[0].amount || 1;
@@ -193,8 +320,9 @@
       var container = el("recent-activity");
       var recent = expenses.sortNewestFirst(list).slice(0, 6);
       container.innerHTML = recent.map(function (e) {
+        var type = recordType(e);
         var slug = storage.categorySlug(e.category);
-        var meta = [e.category, e.vendor].filter(Boolean).join(" · ");
+        var meta = [type === "income" ? "Income" : "Expense", e.category, e.vendor].filter(Boolean).join(" · ");
         return (
           '<li class="recent-item">' +
             '<span class="recent-avatar ' + slug + '" style="background:var(--bg);color:var(--fg)">' + esc(initials(e.title)) + "</span>" +
@@ -202,36 +330,30 @@
               '<span class="recent-title">' + esc(e.title) + "</span>" +
               '<span class="recent-meta">' + esc(meta) + "</span>" +
             "</span>" +
-            '<span class="recent-amt">' + formatCurrency(e.amount) + "</span>" +
+            '<span class="recent-amt ' + (type === "income" ? "is-income" : "is-expense") + '">' +
+              signedCurrency(e.amount, type) +
+            "</span>" +
           "</li>"
         );
       }).join("");
     },
 
-    /* -------------------- EXPENSE LIST -------------------- */
-    /*
-     * Renders either the table (desktop) or cards (mobile) — both are in the
-     * DOM and toggled by CSS media queries, so we build one markup string
-     * that contains a .table-wrap AND a .card-list.
-     * `total` filters state so we can show the right empty view.
-     */
+    /* -------------------- TRANSACTION LIST -------------------- */
     renderList: function (filtered, allCount) {
       var container = el("expense-list-container");
       var emptyAll = el("expenses-empty");
       var emptyNoResults = el("expenses-no-results");
 
-      // No expenses stored at all
       if (allCount === 0) {
         container.innerHTML = "";
         emptyAll.hidden = false;
         emptyNoResults.hidden = true;
-        el("result-count").textContent = "0 expenses";
+        el("result-count").textContent = "0 transactions";
         el("result-total").textContent = "";
         return;
       }
       emptyAll.hidden = true;
 
-      // Have data, but current filters match nothing
       if (filtered.length === 0) {
         container.innerHTML = "";
         emptyNoResults.hidden = false;
@@ -242,18 +364,18 @@
       emptyNoResults.hidden = true;
 
       var sorted = expenses.sortNewestFirst(filtered);
+      var totals = expenses.filteredTotals(sorted);
 
-      // result meta
       el("result-count").textContent =
-        sorted.length + (sorted.length === 1 ? " expense" : " expenses");
-      var sum = sorted.reduce(function (acc, e) { return acc + (Number(e.amount) || 0); }, 0);
-      el("result-total").textContent = "Total " + formatCurrency(sum);
+        sorted.length + (sorted.length === 1 ? " transaction" : " transactions");
+      el("result-total").textContent =
+        "+ " + formatCurrency(totals.income) + " income  ·  − " + formatCurrency(totals.expenses) + " expenses";
 
       container.innerHTML = buildTable(sorted) + buildCards(sorted);
     },
 
     /* -------------------- DRAWER (add / edit) -------------------- */
-    openDrawer: function (mode, expense) {
+    openDrawer: function (mode, record, defaultType) {
       var drawer = el("drawer");
       var overlay = el("drawer-overlay");
       var form = el("expense-form");
@@ -261,28 +383,31 @@
       form.reset();
       ui.clearFieldErrors();
 
-      if (mode === "edit" && expense) {
+      if (mode === "edit" && record) {
+        var type = recordType(record);
         el("drawer-eyebrow").textContent = "Editing";
-        el("drawer-title").textContent = "Edit expense";
+        el("drawer-title").textContent = "Edit transaction";
         el("btn-save").textContent = "Save changes";
-        el("field-id").value = expense.id;
-        el("field-title").value = expense.title || "";
-        el("field-amount").value = expense.amount != null ? expense.amount : "";
-        el("field-category").value = expense.category || "";
-        el("field-vendor").value = expense.vendor || "";
-        el("field-date").value = expense.date || "";
-        el("field-notes").value = expense.notes || "";
+        el("field-id").value = record.id;
+        ui.setFormType(type, record.category);
+        el("field-title").value = record.title || "";
+        el("field-amount").value = record.amount != null ? record.amount : "";
+        el("field-category").value = record.category || "";
+        el("field-vendor").value = record.vendor || "";
+        el("field-date").value = record.date || "";
+        el("field-notes").value = record.notes || "";
       } else {
+        var addType = storage.normalizeType(defaultType || "expense");
         el("drawer-eyebrow").textContent = "New entry";
-        el("drawer-title").textContent = "Add expense";
-        el("btn-save").textContent = "Save expense";
+        el("drawer-title").textContent = "Add transaction";
+        el("btn-save").textContent = "Save transaction";
         el("field-id").value = "";
-        el("field-date").value = expenses._util.todayKey(); // default to today
+        ui.setFormType(addType);
+        el("field-date").value = expenses._util.todayKey();
       }
 
       overlay.hidden = false;
       drawer.setAttribute("aria-hidden", "false");
-      // force reflow so the transition runs
       void drawer.offsetWidth;
       overlay.classList.add("is-shown");
       drawer.classList.add("is-open");
@@ -302,7 +427,6 @@
       return el("drawer").classList.contains("is-open");
     },
 
-    /* -------------------- field errors -------------------- */
     showFieldErrors: function (errors) {
       ui.clearFieldErrors();
       var map = { title: "err-title", amount: "err-amount", category: "err-category", date: "err-date" };
@@ -336,7 +460,6 @@
       });
     },
 
-    /* -------------------- confirm modal -------------------- */
     openConfirm: function (message) {
       var overlay = el("confirm-overlay");
       if (message) el("confirm-text").textContent = message;
@@ -354,7 +477,6 @@
       return !el("confirm-overlay").hidden;
     },
 
-    /* -------------------- toasts -------------------- */
     toast: function (message, type) {
       type = type || "success";
       var container = el("toast-container");
@@ -383,29 +505,36 @@
     },
 
     /* -------------------- view switching -------------------- */
-    setView: function (view) {
+    setView: function (view, navKey) {
       var isDash = view === "dashboard";
       el("view-dashboard").hidden = !isDash;
       el("view-expenses").hidden = isDash;
 
-      el("view-title").textContent = isDash ? "Dashboard" : "Expenses";
-      el("view-eyebrow").textContent = isDash ? "Overview" : "All transactions";
+      var titles = {
+        dashboard: { title: "Dashboard", eyebrow: "Overview" },
+        transactions: { title: "Transactions", eyebrow: "All activity" },
+        income: { title: "Income", eyebrow: "Incoming money" },
+        expenses: { title: "Expenses", eyebrow: "Outgoing money" }
+      };
+      var key = navKey || view;
+      var meta = titles[key] || titles.transactions;
+      el("view-title").textContent = meta.title;
+      el("view-eyebrow").textContent = meta.eyebrow;
 
       var items = document.querySelectorAll(".nav-item[data-view]");
       items.forEach(function (btn) {
-        btn.classList.toggle("is-active", btn.getAttribute("data-view") === view);
+        btn.classList.toggle("is-active", btn.getAttribute("data-view") === key);
       });
     }
   };
 
-  /* ---------------- markup builders (module-private) ---------------- */
   function actionButtons(id) {
     return (
       '<span class="row-actions">' +
-        '<button class="act-btn edit" type="button" data-edit="' + esc(id) + '" aria-label="Edit expense" title="Edit">' +
+        '<button class="act-btn edit" type="button" data-edit="' + esc(id) + '" aria-label="Edit transaction" title="Edit">' +
           '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.12 2.12 0 00-3-3L5 17v3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' +
         "</button>" +
-        '<button class="act-btn del" type="button" data-delete="' + esc(id) + '" aria-label="Delete expense" title="Delete">' +
+        '<button class="act-btn del" type="button" data-delete="' + esc(id) + '" aria-label="Delete transaction" title="Delete">' +
           '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         "</button>" +
       "</span>"
@@ -414,16 +543,19 @@
 
   function buildTable(rows) {
     var body = rows.map(function (e) {
+      var type = recordType(e);
       var rel = relativeDay(e.date);
       var notes = e.notes ? '<div class="cell-notes">' + esc(e.notes) + "</div>" : "";
+      var amtClass = type === "income" ? "is-income" : "is-expense";
       return (
         "<tr>" +
+          "<td>" + typeBadge(type) + "</td>" +
           '<td class="cell-date">' + formatDate(e.date) +
             (rel ? '<span class="date-rel">' + rel + "</span>" : "") + "</td>" +
           "<td><div class=\"cell-title\">" + esc(e.title) + "</div>" + notes + "</td>" +
           "<td>" + badge(e.category) + "</td>" +
           '<td class="cell-vendor">' + (e.vendor ? esc(e.vendor) : '<span style="color:var(--muted)">—</span>') + "</td>" +
-          '<td class="col-amt cell-amt">' + formatCurrency(e.amount) + "</td>" +
+          '<td class="col-amt cell-amt ' + amtClass + '">' + signedCurrency(e.amount, type) + "</td>" +
           '<td class="col-act">' + actionButtons(e.id) + "</td>" +
         "</tr>"
       );
@@ -433,7 +565,7 @@
       '<div class="table-wrap only-desktop">' +
         '<table class="exp-table">' +
           "<thead><tr>" +
-            "<th>Date</th><th>Item</th><th>Category</th><th>Store</th>" +
+            "<th>Type</th><th>Date</th><th>Title</th><th>Category</th><th>Store / source</th>" +
             '<th class="col-amt">Amount</th><th class="col-act">Actions</th>' +
           "</tr></thead>" +
           "<tbody>" + body + "</tbody>" +
@@ -444,16 +576,18 @@
 
   function buildCards(rows) {
     var cards = rows.map(function (e) {
+      var type = recordType(e);
       var rel = relativeDay(e.date);
       var notes = e.notes ? '<div class="exp-card-notes">' + esc(e.notes) + "</div>" : "";
+      var amtClass = type === "income" ? "is-income" : "is-expense";
       return (
         '<article class="exp-card">' +
           '<div class="exp-card-top">' +
             '<div><div class="exp-card-title">' + esc(e.title) + "</div>" +
-              '<div class="exp-card-meta">' + badge(e.category) +
+              '<div class="exp-card-meta">' + typeBadge(type) + badge(e.category) +
                 (e.vendor ? "<span>" + esc(e.vendor) + "</span>" : "") + "</div>" +
             "</div>" +
-            '<div class="exp-card-amt">' + formatCurrency(e.amount) + "</div>" +
+            '<div class="exp-card-amt ' + amtClass + '">' + signedCurrency(e.amount, type) + "</div>" +
           "</div>" +
           notes +
           '<div class="exp-card-foot">' +

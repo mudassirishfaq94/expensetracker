@@ -11,12 +11,13 @@
 
   var ET = (global.ET = global.ET || {});
 
+  /* Same key as Part 1 so existing local data is not orphaned. */
   var STORAGE_KEY = "et_expenses_v1";
   var DEFAULT_CURRENCY = "AED";
 
-  /* The eight fixed categories. Single source of truth — the form select,
-     the filter select, badges and validation all read from here. */
-  var CATEGORIES = [
+  var TYPES = ["expense", "income"];
+
+  var EXPENSE_CATEGORIES = [
     "Food & Groceries",
     "Transport",
     "Shopping",
@@ -24,10 +25,25 @@
     "Entertainment",
     "Health",
     "Education",
+    "Rent",
+    "Travel",
     "Other"
   ];
 
-  /* Map a category name to a CSS class used for its coloured badge/dot. */
+  var INCOME_CATEGORIES = [
+    "Salary",
+    "Freelance",
+    "Business",
+    "Investment",
+    "Rental Income",
+    "Gift",
+    "Refund",
+    "Other Income"
+  ];
+
+  /* Legacy alias used by older UI code. Expense categories are the default. */
+  var CATEGORIES = EXPENSE_CATEGORIES;
+
   var CATEGORY_SLUGS = {
     "Food & Groceries": "cat-food",
     "Transport": "cat-transport",
@@ -36,7 +52,17 @@
     "Entertainment": "cat-entertainment",
     "Health": "cat-health",
     "Education": "cat-education",
-    "Other": "cat-other"
+    "Rent": "cat-rent",
+    "Travel": "cat-travel",
+    "Other": "cat-other",
+    "Salary": "cat-salary",
+    "Freelance": "cat-freelance",
+    "Business": "cat-business",
+    "Investment": "cat-investment",
+    "Rental Income": "cat-rental",
+    "Gift": "cat-gift",
+    "Refund": "cat-refund",
+    "Other Income": "cat-other-income"
   };
 
   /* ---- id generation ---- */
@@ -44,8 +70,62 @@
     if (global.crypto && typeof global.crypto.randomUUID === "function") {
       return global.crypto.randomUUID();
     }
-    // Fallback for older browsers / file:// contexts
-    return "exp-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+    return "txn-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function isIncome(type) {
+    return type === "income";
+  }
+
+  function normalizeType(type) {
+    return type === "income" ? "income" : "expense";
+  }
+
+  function categoriesFor(type) {
+    return isIncome(type) ? INCOME_CATEGORIES.slice() : EXPENSE_CATEGORIES.slice();
+  }
+
+  function allCategories() {
+    return EXPENSE_CATEGORIES.concat(INCOME_CATEGORIES);
+  }
+
+  /* Part 1 records had no `type`. Treat those as expenses and persist once. */
+  function migrateRecord(record) {
+    if (!record || typeof record !== "object") return { record: record, changed: false };
+    var changed = false;
+    var next = record;
+
+    if (next.type !== "income" && next.type !== "expense") {
+      next.type = "expense";
+      changed = true;
+    }
+    if (typeof next.amount !== "number" || !isFinite(next.amount)) {
+      next.amount = Number(next.amount) || 0;
+      changed = true;
+    }
+    if (!next.currency) {
+      next.currency = DEFAULT_CURRENCY;
+      changed = true;
+    }
+    if (next.updatedAt == null) {
+      next.updatedAt = next.createdAt || Date.now();
+      changed = true;
+    }
+    if (next.createdAt == null) {
+      next.createdAt = next.updatedAt || Date.now();
+      changed = true;
+    }
+    return { record: next, changed: changed };
+  }
+
+  function migrateList(list) {
+    var changed = false;
+    var next = (list || []).map(function (item) {
+      var result = migrateRecord(item);
+      if (result.changed) changed = true;
+      return result.record;
+    });
+    return { list: next, changed: changed };
   }
 
   /* ---- low-level read / write ---- */
@@ -56,7 +136,7 @@
       var parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed : [];
     } catch (err) {
-      console.error("[Ledger] Could not read stored expenses:", err);
+      console.error("[Ledger] Could not read stored transactions:", err);
       return [];
     }
   }
@@ -66,25 +146,39 @@
       global.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
       return true;
     } catch (err) {
-      console.error("[Ledger] Could not save expenses:", err);
+      console.error("[Ledger] Could not save transactions:", err);
       return false;
     }
+  }
+
+  function readMigrated() {
+    var migrated = migrateList(readRaw());
+    if (migrated.changed) writeRaw(migrated.list);
+    return migrated.list;
   }
 
   /* ---- public API ---- */
   var storage = {
     STORAGE_KEY: STORAGE_KEY,
     DEFAULT_CURRENCY: DEFAULT_CURRENCY,
+    TYPES: TYPES,
+    EXPENSE_CATEGORIES: EXPENSE_CATEGORIES,
+    INCOME_CATEGORIES: INCOME_CATEGORIES,
     CATEGORIES: CATEGORIES,
     CATEGORY_SLUGS: CATEGORY_SLUGS,
+
+    normalizeType: normalizeType,
+    isIncome: isIncome,
+    categoriesFor: categoriesFor,
+    allCategories: allCategories,
 
     categorySlug: function (category) {
       return CATEGORY_SLUGS[category] || "cat-other";
     },
 
-    /** Return every stored expense (unsorted copy). */
+    /** Return every stored transaction (unsorted copy, migrated). */
     getAll: function () {
-      return readRaw();
+      return readMigrated();
     },
 
     /** Replace the whole collection. */
@@ -92,26 +186,26 @@
       return writeRaw(list || []);
     },
 
-    /** Find one expense by id (or null). */
+    /** Find one transaction by id (or null). */
     get: function (id) {
-      var all = readRaw();
+      var all = readMigrated();
       for (var i = 0; i < all.length; i++) {
         if (all[i].id === id) return all[i];
       }
       return null;
     },
 
-    /** Insert a fully-formed expense record. */
-    add: function (expense) {
-      var all = readRaw();
-      all.push(expense);
+    /** Insert a fully-formed transaction record. */
+    add: function (record) {
+      var all = readMigrated();
+      all.push(record);
       writeRaw(all);
-      return expense;
+      return record;
     },
 
-    /** Merge changes into the expense with matching id. */
+    /** Merge changes into the transaction with matching id. */
     update: function (id, changes) {
-      var all = readRaw();
+      var all = readMigrated();
       for (var i = 0; i < all.length; i++) {
         if (all[i].id === id) {
           for (var k in changes) {
@@ -126,29 +220,29 @@
       return null;
     },
 
-    /** Remove the expense with matching id. */
+    /** Remove the transaction with matching id. */
     remove: function (id) {
-      var all = readRaw();
+      var all = readMigrated();
       var next = all.filter(function (e) { return e.id !== id; });
       writeRaw(next);
       return next.length !== all.length;
     },
 
-    /** Generate a new unique id. */
     newId: uid,
 
     /**
-     * Realistic sample expenses for first-time exploration.
-     * Dates are generated relative to "today" so the dashboard (which is
-     * month/day aware) always has something meaningful to show.
-     * NOTE: this is only ever called from an explicit user action —
-     * the app never auto-seeds, so deleting samples makes them stay gone.
+     * Sample income + expenses for first-time exploration.
+     * Dates are local (not UTC) so dashboard month/day stats line up.
+     * Only called from an explicit user action — never auto-seeded.
      */
     buildSampleData: function () {
       function iso(daysAgo) {
         var d = new Date();
         d.setDate(d.getDate() - daysAgo);
-        return d.toISOString().slice(0, 10);
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1).padStart(2, "0");
+        var day = String(d.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + day;
       }
       function ts(daysAgo, hour) {
         var d = new Date();
@@ -157,22 +251,20 @@
         return d.getTime();
       }
       var seed = [
-        { title: "Sugar",           amount: 12,   category: "Food & Groceries", vendor: "Carrefour",   daysAgo: 0,  note: "" },
-        { title: "Lunch",           amount: 35,   category: "Food & Groceries", vendor: "Restaurant",  daysAgo: 0,  note: "Team lunch" },
-        { title: "Petrol",          amount: 150,  category: "Transport",        vendor: "ENOC",        daysAgo: 1,  note: "Full tank" },
-        { title: "Netflix",         amount: 45,   category: "Entertainment",    vendor: "Netflix",     daysAgo: 2,  note: "Monthly plan" },
-        { title: "Groceries",       amount: 220,  category: "Food & Groceries", vendor: "Lulu",        daysAgo: 3,  note: "Weekly shop" },
-        { title: "DEWA bill",       amount: 310,  category: "Bills",            vendor: "DEWA",        daysAgo: 4,  note: "Electricity + water" },
-        { title: "Taxi",            amount: 28,   category: "Transport",        vendor: "Careem",      daysAgo: 5,  note: "" },
-        { title: "Pharmacy",        amount: 64,   category: "Health",           vendor: "Aster",       daysAgo: 6,  note: "Vitamins" },
-        { title: "T-shirt",         amount: 89,   category: "Shopping",         vendor: "Uniqlo",      daysAgo: 8,  note: "" },
-        { title: "Online course",   amount: 120,  category: "Education",        vendor: "Coursera",    daysAgo: 11, note: "Data course" },
-        { title: "Coffee",          amount: 22,   category: "Food & Groceries", vendor: "Starbucks",   daysAgo: 12, note: "" },
-        { title: "Cinema",          amount: 90,   category: "Entertainment",    vendor: "Vox",         daysAgo: 14, note: "Two tickets" }
+        { type: "income",  title: "Monthly Salary",            amount: 8000, category: "Salary",            vendor: "Company Name", daysAgo: 20, hour: 8,  note: "August payroll" },
+        { type: "income",  title: "Freelance Website Project", amount: 1500, category: "Freelance",         vendor: "Client",       daysAgo: 6,  hour: 11, note: "" },
+        { type: "income",  title: "Refund",                    amount: 200,  category: "Refund",            vendor: "Carrefour",    daysAgo: 2,  hour: 14, note: "Returned item" },
+        { type: "expense", title: "Sugar",                     amount: 12,   category: "Food & Groceries",  vendor: "Carrefour",    daysAgo: 0,  hour: 10, note: "" },
+        { type: "expense", title: "Lunch",                     amount: 35,   category: "Food & Groceries",  vendor: "Restaurant",   daysAgo: 0,  hour: 13, note: "" },
+        { type: "expense", title: "Petrol",                    amount: 150,  category: "Transport",         vendor: "ENOC",         daysAgo: 1,  hour: 9,  note: "" },
+        { type: "expense", title: "Netflix",                   amount: 45,   category: "Entertainment",     vendor: "Netflix",      daysAgo: 3,  hour: 19, note: "Monthly plan" },
+        { type: "expense", title: "Internet Bill",             amount: 399,  category: "Bills",             vendor: "Etisalat",     daysAgo: 5,  hour: 16, note: "" }
       ];
       return seed.map(function (s) {
+        var created = ts(s.daysAgo, s.hour);
         return {
           id: uid(),
+          type: s.type,
           title: s.title,
           amount: s.amount,
           currency: DEFAULT_CURRENCY,
@@ -180,13 +272,13 @@
           vendor: s.vendor,
           date: iso(s.daysAgo),
           notes: s.note,
-          createdAt: ts(s.daysAgo, 9),
-          updatedAt: ts(s.daysAgo, 9)
+          createdAt: created,
+          updatedAt: created
         };
       });
     },
 
-    /** Write the sample set (replacing anything present). */
+    /** Write the sample set (replacing anything present). Explicit user action only. */
     loadSampleData: function () {
       var samples = this.buildSampleData();
       writeRaw(samples);
