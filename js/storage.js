@@ -16,6 +16,9 @@
   /* Google Sheets connection config + pending remote actions (Part 4). */
   var SHEETS_CONFIG_KEY = "et_sheets_config_v1";
   var SHEETS_DELETES_KEY = "et_sheets_pending_deletes_v1";
+  /* Budgets & goals (Part 6). */
+  var BUDGETS_KEY = "et_budgets_v1";
+  var GOALS_KEY = "et_goals_v1";
   var DEFAULT_CURRENCY = "AED";
 
   var TYPES = ["expense", "income"];
@@ -287,6 +290,47 @@
         return true;
       } catch (err) {
         console.error("[Ledger] Could not save pending deletes:", err);
+        return false;
+      }
+    },
+
+    /* ---- Budgets & goals (Part 6) ---- */
+    getBudgetsConfig: function () {
+      try {
+        var raw = global.localStorage.getItem(BUDGETS_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        console.error("[Ledger] Could not read budgets:", err);
+        return null;
+      }
+    },
+
+    saveBudgetsConfig: function (config) {
+      try {
+        global.localStorage.setItem(BUDGETS_KEY, JSON.stringify(config || {}));
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not save budgets:", err);
+        return false;
+      }
+    },
+
+    getGoals: function () {
+      try {
+        var raw = global.localStorage.getItem(GOALS_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        console.error("[Ledger] Could not read goals:", err);
+        return null;
+      }
+    },
+
+    saveGoals: function (list) {
+      try {
+        global.localStorage.setItem(GOALS_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not save goals:", err);
         return false;
       }
     },

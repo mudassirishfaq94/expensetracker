@@ -12,7 +12,11 @@ accounts, no external services — your data never leaves the browser.
 > **Part 4.5** — Google Sheets formatting, live financial calculations and a
 > built-in Summary sheet.
 > **Part 5** — Reports, analytics and financial insights page with charts.
-> The next phase will add budgets, spending limits, and financial goals.
+> **Part 5.1** — Fix reports filter reset and empty-state recovery bug.
+> **Part 6** — Monthly budgets, category budgets, budget warnings, and
+> savings goals with contribution tracking.
+> The next phase will add recurring transactions, subscription tracking,
+> income scheduling, and reminders.
 
 ## Features
 
@@ -114,6 +118,31 @@ accounts, no external services — your data never leaves the browser.
   (string amounts converted to numbers, ISO timestamps to Date objects, legacy
   "expense" type normalized to "Expense").
 
+### Budgets & goals (Part 6)
+
+- **Monthly budget** — set a monthly spending limit. Ledger tracks this
+  month's expense total against it: spent, remaining, and percent used with a
+  progress bar.
+- **Budget warnings** — at 80% usage a warning is shown; at 100%+ the budget is
+  marked exceeded with the overage amount.
+- **Category budgets** — per-category monthly limits (Food & Groceries,
+  Transport, Rent, …) with the same spent / remaining / percent / exceeded
+  tracking. Duplicate budgets for the same category are rejected.
+- **Savings goals** — create goals with a name, target amount, and optional
+  deadline; add contributions over time; track contributed, remaining,
+  progress percent, and a Completed badge at 100%.
+- **Validation everywhere** — negative or zero budgets/targets/contributions,
+  empty goal names, invalid dates, and duplicate category budgets all produce
+  clear inline error messages instead of bad data.
+- **Contributions never count as expenses** — goal contributions are stored
+  separately from transactions and never affect budget or report totals.
+- **Dashboard integration** — the dashboard shows a monthly budget panel and a
+  savings-goals widget; both update automatically whenever transactions,
+  budgets, or goals change.
+- **Dedicated page** — a "Budgets & Goals" section in the sidebar manages
+  budgets and goals, backed by `localStorage` keys `et_budgets_v1` and
+  `et_goals_v1`.
+
 ### Smart entry (natural language)
 
 - **Add Transaction Quickly** panel at the top of the Dashboard — type a normal
@@ -207,13 +236,14 @@ python -m http.server 8000
 /js/parser.js      Rule-based natural-language parser (smart entry)
 /js/googleSheets.js  Google Sheets sync layer (config, test, send/update/delete, retries)
 /js/reports.js      Pure calculation engine (overview, category breakdowns, trends, insights)
+/js/budgets.js      Budgets & goals domain logic (monthly/category limits, goals, validation)
 /js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts, sheets, reports) + Chart.js management
 /js/app.js         Bootstrap, routing, validation, event wiring
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → transactions → expenses → parser → googleSheets → reports → ui → app`).
+(`storage → transactions → expenses → parser → googleSheets → reports → budgets → ui → app`).
 Chart.js (loaded from CDN before any script) provides the charting for the
 Reports page. Classic scripts (not ES modules) are used so the app runs
 correctly even when opened directly from the file system. All writes go through
@@ -259,8 +289,9 @@ Refund · Other Income
 
 ## Roadmap (not built yet)
 
-Budgets & spending limits · financial goals · better Google Sheets reporting ·
-PDF export · Settings · Authentication / cloud sync.
+Recurring transactions & subscription tracking · income scheduling ·
+due-date reminders · better Google Sheets reporting · PDF export · Settings ·
+Authentication / cloud sync.
 
 ---
 

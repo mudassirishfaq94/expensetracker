@@ -44,9 +44,13 @@
       var reportCat = ui.populateReportCategories(all, state.reportFilters.category);
       state.reportFilters.category = reportCat;
       ui.renderReportsPage(all, state.reportFilters);
+    } else if (state.view === "budgets") {
+      ui.renderBudgetsPage(all);
     } else {
       ui.renderDashboard(all);
     }
+    ui.renderDashboardBudget(all);
+    ui.renderDashboardGoals();
 
     var filtered = expenses.filter(all, state.filters);
     ui.renderList(filtered, all.length);
@@ -65,12 +69,21 @@
     if (state.view === "dashboard") return "dashboard";
     if (state.view === "sheets") return "sheets";
     if (state.view === "reports") return "reports";
+    if (state.view === "budgets") return "budgets";
     if (state.filters.type === "income") return "income";
     if (state.filters.type === "expense") return "expenses";
     return "transactions";
   }
 
   function goToView(view) {
+    if (view === "budgets") {
+      state.view = "budgets";
+      state.navKey = "budgets";
+      ui.setView("budgets", "budgets");
+      closeSidebar();
+      refresh();
+      return;
+    }
     if (view === "reports") {
       state.view = "reports";
       state.navKey = "reports";
@@ -233,6 +246,7 @@
     var view = state.view === "dashboard" ? "dashboard"
       : state.view === "sheets" ? "sheets"
       : state.view === "reports" ? "reports"
+      : state.view === "budgets" ? "budgets"
       : "transactions";
     ui.setView(view, state.navKey);
   }
@@ -453,6 +467,97 @@
     document.body.removeChild(ta);
   }
 
+  /* ------------------- Budgets & Goals handlers ------------------- */
+  function saveMonthlyBudget() {
+    var input = el("budget-monthly-input");
+    var errBox = el("budget-monthly-error");
+    errBox.hidden = true;
+    errBox.textContent = "";
+    var err = ET.budgets.validateMonthlyBudget(input.value);
+    if (err) {
+      errBox.textContent = err;
+      errBox.hidden = false;
+      input.focus();
+      return;
+    }
+    ET.budgets.setMonthlyBudget(input.value);
+    refresh();
+    ui.toast("Monthly budget saved.");
+  }
+
+  function addCategoryBudget() {
+    var sel = el("budget-cat-select");
+    var amount = el("budget-cat-amount");
+    var errBox = el("budget-cat-error");
+    errBox.hidden = true;
+    errBox.textContent = "";
+    var err = ET.budgets.validateCategoryBudget(sel.value, amount.value);
+    if (err) {
+      errBox.textContent = err;
+      errBox.hidden = false;
+      return;
+    }
+    ET.budgets.setCategoryBudget(sel.value, Number(amount.value));
+    amount.value = "";
+    refresh();
+    ui.toast("Category budget saved.");
+  }
+
+  function handleBudgetListClick(e) {
+    var removeBtn = e.target.closest("[data-remove-cat]");
+    if (!removeBtn) return;
+    ET.budgets.removeCategoryBudget(removeBtn.getAttribute("data-remove-cat"));
+    refresh();
+    ui.toast("Category budget removed.", "info");
+  }
+
+  function addGoal() {
+    var name = el("goal-name");
+    var target = el("goal-target");
+    var deadline = el("goal-deadline");
+    var errBox = el("goal-error");
+    errBox.hidden = true;
+    errBox.textContent = "";
+    var result = ET.budgets.addGoal({ name: name.value, target: target.value, deadline: deadline.value });
+    if (result.error) {
+      errBox.textContent = result.error;
+      errBox.hidden = false;
+      return;
+    }
+    name.value = "";
+    target.value = "";
+    deadline.value = "";
+    refresh();
+    ui.toast("Goal created.");
+  }
+
+  function handleGoalsListClick(e) {
+    var contribBtn = e.target.closest("[data-contribute]");
+    if (contribBtn) {
+      var gid = contribBtn.getAttribute("data-contribute");
+      var amountInput = document.querySelector('[data-contrib-amount="' + gid + '"]');
+      var result = ET.budgets.addContribution(gid, { amount: amountInput ? amountInput.value : "" });
+      if (result.error) {
+        ui.toast(result.error, "error");
+      } else {
+        if (amountInput) amountInput.value = "";
+        refresh();
+        ui.toast("Contribution added.");
+      }
+      return;
+    }
+    var delBtn = e.target.closest("[data-delete-goal]");
+    if (delBtn) {
+      var gid2 = delBtn.getAttribute("data-delete-goal");
+      state.pendingAction = function () {
+        ET.budgets.deleteGoal(gid2);
+        refresh();
+        ui.toast("Goal deleted.", "info");
+      };
+      ui.openConfirm("Delete this goal? Its contributions will be removed too.", "Delete goal?", "Delete");
+    }
+  }
+
   /* --------------------- smart natural-language entry --------------------- */
   function handleAnalyze() {
     var input = el("nl-input");
@@ -647,6 +752,13 @@
     el("btn-sync-all").addEventListener("click", syncAll);
     el("btn-sync-existing").addEventListener("click", confirmSyncExisting);
     el("btn-copy-script").addEventListener("click", copyScript);
+
+    // Budgets & Goals
+    el("btn-save-monthly-budget").addEventListener("click", saveMonthlyBudget);
+    el("btn-add-cat-budget").addEventListener("click", addCategoryBudget);
+    el("category-budget-list").addEventListener("click", handleBudgetListClick);
+    el("btn-add-goal").addEventListener("click", addGoal);
+    el("goals-list").addEventListener("click", handleGoalsListClick);
 
     el("btn-menu").addEventListener("click", openSidebar);
     el("sidebar-backdrop").addEventListener("click", closeSidebar);

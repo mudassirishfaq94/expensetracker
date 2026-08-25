@@ -562,6 +562,91 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   .report-grid { grid-template-columns: 1fr; }
 }
 
+/* -------------------------- Budgets & goals ---------------------------- */
+.budgets-layout {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;
+}
+.budgets-main, .budgets-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.budget-edit-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.budget-edit-row .field { flex: 1; min-width: 160px; }
+.budget-actions { margin-top: 4px; }
+
+.budget-block {
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px 16px; margin-top: 14px;
+}
+.budget-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.budget-label { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.budget-amt { font-size: 14px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.budget-bar {
+  height: 10px; border-radius: 999px; overflow: hidden;
+  background: #E7E2D4; margin: 10px 0 8px;
+}
+.budget-bar-fill { display: block; height: 100%; border-radius: 999px; transition: width 0.4s var(--ease); }
+.budget-bar-fill.is-ok { background: var(--success); }
+.budget-bar-fill.is-warn { background: var(--gold); }
+.budget-bar-fill.is-danger { background: var(--danger); }
+.budget-bar-fill.is-done { background: var(--success); }
+.budget-block-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--muted);
+}
+.budget-pct { font-weight: 700; font-variant-numeric: tabular-nums; }
+.budget-pct.is-warn { color: var(--gold); }
+.budget-pct.is-danger { color: var(--danger); }
+.budget-pct.is-ok { color: var(--success); }
+.budget-alert {
+  margin-top: 10px; font-size: 13px; font-weight: 600;
+  padding: 9px 12px; border-radius: 10px;
+}
+.budget-alert.is-warn { color: #8A6A1E; background: #F7F0DA; border: 1px solid #E8D9A8; }
+.budget-alert.is-danger { color: var(--danger); background: var(--danger-soft); border: 1px solid #E8CFC8; }
+.budgets-hint { font-size: 13.5px; color: var(--muted); padding: 6px 2px; }
+.budget-more { margin-top: 10px; }
+
+.cat-budget-row { border-bottom: 1px solid var(--line); }
+.cat-budget-row:last-child { border-bottom: 0; }
+.cat-budget-row .budget-block { margin-top: 0; border: 0; background: transparent; padding: 14px 2px; }
+.cat-budget-row .btn-sm { margin-top: 10px; }
+
+.goal-form {
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.budget-section-title { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+
+.goal-card {
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+}
+.goal-card.is-completed { border-color: #B5D6C4; background: var(--success-soft); }
+.goal-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.goal-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+.goal-done-badge {
+  font-size: 11px; font-weight: 700; color: var(--success);
+  background: var(--success-soft); border: 1px solid #B5D6C4;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+}
+.goal-progress-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 8px; font-size: 12.5px; color: var(--muted);
+}
+.goal-pct { font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.goal-card-foot { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.goal-contribute { display: flex; gap: 8px; margin-top: 12px; }
+.goal-contrib-input {
+  flex: 1; min-width: 0;
+  padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 9px;
+  background: var(--paper); font-size: 13px;
+}
+.goal-card .btn-sm { margin-top: 8px; }
+
+.btn-sm { padding: 7px 13px; font-size: 12.5px; }
+
+@media (max-width: 900px) {
+  .budgets-layout { grid-template-columns: 1fr; }
+}
+
 /* ------------------------------- Filters ------------------------------- */
 .filters {
   display: flex; gap: 10px; flex-wrap: wrap; align-items: center;

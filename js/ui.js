@@ -13,6 +13,7 @@
   var storage = ET.storage;
   var sheets = ET.sheets;
   var reports = ET.reports;
+  var budgets = ET.budgets;
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function el(id) { return document.getElementById(id); }
@@ -93,6 +94,11 @@
   ];
   function paletteColor(index) {
     return PALETTE[index % PALETTE.length];
+  }
+
+  function formatPct(p) {
+    if (p == null || isNaN(Number(p))) return "0%";
+    return (Math.round(Number(p) * 100) / 100) + "%";
   }
 
   function badge(category) {
@@ -615,6 +621,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("view-expenses").hidden = view !== "transactions";
       el("view-sheets").hidden = view !== "sheets";
       el("view-reports").hidden = view !== "reports";
+      el("view-budgets").hidden = view !== "budgets";
 
       var titles = {
         dashboard: { title: "Dashboard", eyebrow: "Overview" },
@@ -622,7 +629,8 @@ openConfirm: function (message, title, confirmLabel) {
         income: { title: "Income", eyebrow: "Incoming money" },
         expenses: { title: "Expenses", eyebrow: "Outgoing money" },
         sheets: { title: "Google Sheets", eyebrow: "Cloud backup & sync" },
-        reports: { title: "Reports", eyebrow: "Analytics & insights" }
+        reports: { title: "Reports", eyebrow: "Analytics & insights" },
+        budgets: { title: "Budgets & Goals", eyebrow: "Limits & savings targets" }
       };
       var key = navKey || view;
       var meta = titles[key] || titles.transactions;
@@ -1103,6 +1111,130 @@ openConfirm: function (message, title, confirmLabel) {
           }
         }
       };
+    },
+
+    /* -------------------- BUDGETS & GOALS -------------------- */
+
+    budgetBlockHTML: function (label, row) {
+      var pct = Math.min(100, row.pct);
+      var levelClass = row.level === "exceeded" ? "is-danger" : row.level === "warning" ? "is-warn" : "is-ok";
+      var html = '<div class="budget-block">';
+      html += '<div class="budget-block-head"><span class="budget-label">' + esc(label) + '</span><span class="budget-amt">' + formatCurrency(row.budget) + '</span></div>';
+      html += '<div class="budget-bar"><span class="budget-bar-fill ' + levelClass + '" style="width:' + pct + '%"></span></div>';
+      html += '<div class="budget-block-foot"><span>Spent: ' + formatCurrency(row.spent) + '</span><span>Remaining: ' + formatCurrency(row.remaining) + '</span><span class="budget-pct ' + levelClass + '">' + formatPct(row.pct) + '</span></div>';
+      if (row.exceeded) html += '<p class="budget-alert is-danger">Exceeded by ' + formatCurrency(row.exceededBy) + '.</p>';
+      else if (row.level === "warning") html += '<p class="budget-alert is-warn">Warning: ' + formatPct(row.pct) + ' of this budget used.</p>';
+      html += '</div>';
+      return html;
+    },
+
+    categoryBudgetRowHTML: function (cat, row) {
+      var pct = Math.min(100, row.pct);
+      var levelClass = row.level === "exceeded" ? "is-danger" : row.level === "warning" ? "is-warn" : "is-ok";
+      var html = '<div class="cat-budget-row"><div class="budget-block">';
+      html += '<div class="budget-block-head"><span class="budget-label">' + esc(cat) + '</span><span class="budget-amt">' + formatCurrency(row.budget) + '</span></div>';
+      html += '<div class="budget-bar"><span class="budget-bar-fill ' + levelClass + '" style="width:' + pct + '%"></span></div>';
+      html += '<div class="budget-block-foot"><span>Spent: ' + formatCurrency(row.spent) + '</span><span>Remaining: ' + formatCurrency(row.remaining) + '</span><span class="budget-pct ' + levelClass + '">' + formatPct(row.pct) + '</span></div>';
+      if (row.exceeded) html += '<p class="budget-alert is-danger">Exceeded by ' + formatCurrency(row.exceededBy) + '.</p>';
+      else if (row.level === "warning") html += '<p class="budget-alert is-warn">Warning: ' + formatPct(row.pct) + ' of this budget used.</p>';
+      html += '<button type="button" class="btn btn-ghost btn-sm" data-remove-cat="' + esc(cat) + '">Remove budget</button>';
+      html += '</div></div>';
+      return html;
+    },
+
+    goalCardHTML: function (goal, prog, compact) {
+      var pct = Math.min(100, prog.pct);
+      var levelClass = prog.completed ? "is-done" : "is-ok";
+      var deadline = goal.deadline ? ' &middot; Deadline ' + formatDate(goal.deadline) : '';
+      var html = '<div class="goal-card' + (prog.completed ? ' is-completed' : '') + '">';
+      html += '<div class="goal-card-head"><span class="goal-name">' + esc(goal.name) + '</span>' + (prog.completed ? '<span class="goal-done-badge">Completed</span>' : '') + '</div>';
+      html += '<div class="goal-progress-row"><span>' + formatCurrency(prog.contributed) + '</span><span>of ' + formatCurrency(prog.target) + '</span><span class="goal-pct">' + formatPct(prog.pct) + '</span></div>';
+      html += '<div class="budget-bar"><span class="budget-bar-fill ' + levelClass + '" style="width:' + pct + '%"></span></div>';
+      html += '<div class="goal-card-foot"><span>' + formatCurrency(prog.remaining) + ' remaining' + deadline + '</span></div>';
+      if (!compact) {
+        html += '<div class="goal-contribute"><input type="number" class="goal-contrib-input" data-contrib-amount="' + esc(goal.id) + '" min="0.01" step="0.01" placeholder="Amount (AED)" />';
+        html += '<button type="button" class="btn btn-primary btn-sm" data-contribute="' + esc(goal.id) + '">Add</button></div>';
+        html += '<button type="button" class="btn btn-ghost btn-sm" data-delete-goal="' + esc(goal.id) + '">Delete goal</button>';
+      }
+      html += '</div>';
+      return html;
+    },
+
+    renderDashboardBudget: function (transactions) {
+      var panel = el("dashboard-budget");
+      var body = el("dash-budget-body");
+      if (!panel || !body) return;
+      var st = budgets.budgetStatus(transactions);
+      var cfg = budgets.getBudgetsConfig();
+      if (!st.hasMonthlyBudget && !st.hasCategoryBudgets) {
+        panel.style.display = "none";
+        return;
+      }
+      panel.style.display = "";
+      var html = "";
+      if (st.hasMonthlyBudget) html += this.budgetBlockHTML("Monthly budget", st.monthly);
+      var cats = Object.keys(st.categories);
+      var shown = cats.slice(0, 3);
+      shown.forEach(function (cat) { html += this.budgetBlockHTML(cat + " budget", st.categories[cat]); }, this);
+      if (cats.length > 3) html += '<p class="budget-more"><a class="link-btn" data-view-jump="budgets" href="#">View all budgets</a></p>';
+      body.innerHTML = html;
+    },
+
+    renderDashboardGoals: function () {
+      var panel = el("dashboard-goals");
+      var body = el("dash-goals-body");
+      if (!panel || !body) return;
+      var goals = budgets.getGoals();
+      if (!goals.length) { panel.style.display = "none"; return; }
+      panel.style.display = "";
+      body.innerHTML = goals.map(function (g) {
+        return this.goalCardHTML(g, budgets.computeGoalProgress(g), true);
+      }, this).join("");
+    },
+
+    renderBudgetsPage: function (transactions) {
+      var st = budgets.budgetStatus(transactions);
+      var cfg = budgets.getBudgetsConfig();
+      var monthLabel = (expenses._util.monthLabel && expenses._util.monthLabel(st.monthKey)) || st.monthKey;
+      el("budget-month-label").textContent = "This month &middot; " + monthLabel;
+
+      var mi = el("budget-monthly-input");
+      if (cfg.monthly > 0 && mi.value === "") mi.value = cfg.monthly;
+
+      var statusBox = el("monthly-budget-status");
+      statusBox.innerHTML = st.hasMonthlyBudget
+        ? this.budgetBlockHTML("Monthly spending", st.monthly)
+        : '<p class="budgets-hint">Set a monthly limit to track your spending. Income and goal contributions are never counted.</p>';
+
+      var catList = el("category-budget-list");
+      var catKeys = Object.keys(st.categories);
+      catList.innerHTML = catKeys.length
+        ? catKeys.map(function (cat) { return this.categoryBudgetRowHTML(cat, st.categories[cat]); }, this).join("")
+        : '<p class="budgets-hint">No category budgets yet. Add one below.</p>';
+
+      this.populateBudgetCategorySelect();
+
+      var goals = budgets.getGoals();
+      var goalsBox = el("goals-list");
+      goalsBox.innerHTML = goals.length
+        ? goals.map(function (g) { return this.goalCardHTML(g, budgets.computeGoalProgress(g), false); }, this).join("")
+        : '<p class="budgets-hint">Create your first savings goal to start tracking progress.</p>';
+    },
+
+    populateBudgetCategorySelect: function (keepValue) {
+      var sel = el("budget-cat-select");
+      if (!sel) return;
+      var current = keepValue != null ? keepValue : sel.value;
+      var used = budgets.getBudgetsConfig().categories;
+      var options = (storage.EXPENSE_CATEGORIES || []).filter(function (cat) {
+        return !Object.prototype.hasOwnProperty.call(used, cat);
+      });
+      sel.innerHTML = '<option value="">Choose a category</option>';
+      options.forEach(function (cat) {
+        var o = document.createElement("option");
+        o.value = cat; o.textContent = cat; sel.appendChild(o);
+      });
+      sel.value = options.indexOf(current) !== -1 ? current : "";
     },
   };
 
