@@ -30,6 +30,16 @@
 
   var TYPES = ["expense", "income"];
 
+  var _mutationListeners = [];
+  var _mutationSuppressed = false;
+
+  function _emit(type, payload) {
+    if (_mutationSuppressed) return;
+    _mutationListeners.forEach(function (fn) {
+      try { fn(type, payload); } catch (e) { console.error("[Ledger] mutation listener error:", e); }
+    });
+  }
+
   var EXPENSE_CATEGORIES = [
     "Food & Groceries",
     "Transport",
@@ -201,7 +211,9 @@
 
     /** Replace the whole collection. */
     saveAll: function (list) {
-      return writeRaw(list || []);
+      var ok = writeRaw(list || []);
+      if (ok) _emit("tx-replace", (list || []));
+      return ok;
     },
 
     /** Find one transaction by id (or null). */
@@ -218,6 +230,7 @@
       var all = readMigrated();
       all.push(record);
       writeRaw(all);
+      _emit("tx-add", record);
       return record;
     },
 
@@ -232,6 +245,7 @@
             }
           }
           writeRaw(all);
+          _emit("tx-update", all[i]);
           return all[i];
         }
       }
@@ -243,10 +257,25 @@
       var all = readMigrated();
       var next = all.filter(function (e) { return e.id !== id; });
       writeRaw(next);
-      return next.length !== all.length;
+      if (next.length !== all.length) {
+        _emit("tx-delete", { id: id });
+        return true;
+      }
+      return false;
     },
 
     newId: uid,
+
+    /* Subscribe to data mutations (used by the Supabase sync layer). */
+    onMutation: function (fn) {
+      if (typeof fn === "function") _mutationListeners.push(fn);
+    },
+
+    /* While true, no mutation events are emitted (used while loading from
+       the database or migrating so changes are not re-sent). */
+    suppressMutations: function (flag) {
+      _mutationSuppressed = !!flag;
+    },
 
     /* ---- Google Sheets connection config (Part 4) ---- */
     getSheetsConfig: function () {
@@ -315,6 +344,7 @@
     saveBudgetsConfig: function (config) {
       try {
         global.localStorage.setItem(BUDGETS_KEY, JSON.stringify(config || {}));
+        _emit("budgets", config || {});
         return true;
       } catch (err) {
         console.error("[Ledger] Could not save budgets:", err);
@@ -335,6 +365,7 @@
     saveGoals: function (list) {
       try {
         global.localStorage.setItem(GOALS_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+        _emit("goals", Array.isArray(list) ? list : []);
         return true;
       } catch (err) {
         console.error("[Ledger] Could not save goals:", err);
@@ -356,6 +387,7 @@
     saveRecurring: function (list) {
       try {
         global.localStorage.setItem(RECURRING_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+        _emit("recurring", Array.isArray(list) ? list : []);
         return true;
       } catch (err) {
         console.error("[Ledger] Could not save recurring transactions:", err);
@@ -368,6 +400,7 @@
     replaceAllTransactions: function (list) {
       try {
         global.localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+        _emit("tx-replace", (Array.isArray(list) ? list : []));
         return true;
       } catch (err) {
         console.error("[Ledger] Could not write transactions:", err);

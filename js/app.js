@@ -15,6 +15,10 @@
 
   var el = function (id) { return document.getElementById(id); };
 
+  function globalLocalSave(key, value) {
+    try { global.localStorage.setItem(key, String(value || "")); } catch (e) { /* ignore */ }
+  }
+
   function pad2(n) { return String(n).padStart(2, "0"); }
   function todayKeyOf(d) {
     return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
@@ -25,7 +29,8 @@
     navKey: "dashboard",
     filters: { search: "", category: "", month: "", type: "all" },
     reportFilters: { range: "this-month", type: "all", category: "", start: "", end: "" },
-    pendingDeleteId: null
+    pendingDeleteId: null,
+    cloudRetry: null
   };
 
   function refresh(opts) {
@@ -50,6 +55,8 @@
       ui.renderRecurringPage();
     } else if (state.view === "data") {
       ui.renderDataPage(all);
+    } else if (state.view === "settings") {
+      ui.renderSettingsPage();
     } else {
       ui.renderDashboard(all);
     }
@@ -77,12 +84,21 @@
     if (state.view === "budgets") return "budgets";
     if (state.view === "recurring") return "recurring";
     if (state.view === "data") return "data";
+    if (state.view === "settings") return "settings";
     if (state.filters.type === "income") return "income";
     if (state.filters.type === "expense") return "expenses";
     return "transactions";
   }
 
   function goToView(view) {
+    if (view === "settings") {
+      state.view = "settings";
+      state.navKey = "settings";
+      ui.setView("settings", "settings");
+      closeSidebar();
+      refresh();
+      return;
+    }
     if (view === "data") {
       state.view = "data";
       state.navKey = "data";
@@ -274,6 +290,7 @@
       : state.view === "budgets" ? "budgets"
       : state.view === "recurring" ? "recurring"
       : state.view === "data" ? "data"
+      : state.view === "settings" ? "settings"
       : "transactions";
     ui.setView(view, state.navKey);
   }
@@ -1194,6 +1211,47 @@
       ui.toast("Application has been reset.");
     });
 
+    // Auth screen
+    el("btn-login").addEventListener("click", function () { handleAuthSubmit("login-form"); });
+    el("login-form").addEventListener("submit", function (e) { e.preventDefault(); handleAuthSubmit("login-form"); });
+    el("btn-signup").addEventListener("click", function () { handleAuthSubmit("signup-form"); });
+    el("signup-form").addEventListener("submit", function (e) { e.preventDefault(); handleAuthSubmit("signup-form"); });
+    el("btn-forgot").addEventListener("click", function () { handleAuthSubmit("forgot-form"); });
+    el("forgot-form").addEventListener("submit", function (e) { e.preventDefault(); handleAuthSubmit("forgot-form"); });
+    document.querySelectorAll("[data-auth-view]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        ui.showAuthView(btn.getAttribute("data-auth-view"));
+      });
+    });
+
+    // Migration
+    el("btn-migrate").addEventListener("click", doMigrate);
+    el("btn-skip-migration").addEventListener("click", skipMigration);
+
+    // Cloud error retry / logout
+    el("btn-cloud-retry").addEventListener("click", function () {
+      ui.hideCloudError();
+      if (state.cloudRetry) state.cloudRetry();
+    });
+    el("btn-cloud-logout").addEventListener("click", handleLogout);
+
+    // Logout (sidebar user area + settings)
+    el("btn-logout").addEventListener("click", handleLogout);
+    el("btn-settings-logout").addEventListener("click", handleLogout);
+
+    // Settings
+    el("btn-save-settings").addEventListener("click", function () {
+      var currency = el("settings-currency").value;
+      globalLocalSave("et_currency_pref", currency);
+      if (ET.database.isCloudMode()) {
+        ET.database.updateUserSettings({ currency: currency }).then(function () {
+          ui.toast("Preferences saved.");
+        });
+      } else {
+        ui.toast("Preferences saved.");
+      }
+    });
+
     el("btn-menu").addEventListener("click", openSidebar);
     el("sidebar-backdrop").addEventListener("click", closeSidebar);
 
@@ -1206,12 +1264,207 @@
     });
   }
 
-  function init() {
-    ui.populateCategorySelects();
-    wire();
+  /* ------------------- Cloud (Supabase) startup flow ------------------- */
+
+  function startLocalApp() {
+    ET.database.setCloudMode(false);
+    ui.hideAuthScreen();
+    ui.hideLoading();
+    ui.hideUserMenu();
     ui.setView("dashboard", "dashboard");
     processRecurringNow();
     refresh({ animateDashboard: true });
+  }
+
+  function enterCloudApp(user) {
+    ui.showLoading("Loading your financial data\u2026");
+    ET.database.setCloudMode(true);
+    ET.database.subscribeToMutations();
+    ET.database.ensureProfile()
+      .then(function () {
+        var check = ET.migration.runCheck();
+        if (check === true) {
+          ui.hideLoading();
+          ui.updateUserMenu(user);
+          ui.showMigrationScreen();
+          return;
+        }
+        return ET.database.loadAll().then(function () {
+          ui.hideLoading();
+          ui.updateUserMenu(user);
+          ui.hideMigrationScreen();
+          ui.setView("dashboard", "dashboard");
+          processRecurringNow();
+          refresh({ animateDashboard: true });
+        });
+      })
+      .catch(function (err) {
+        console.error("[Ledger] cloud startup error:", err);
+        ui.hideLoading();
+        state.cloudRetry = function () { enterCloudApp(user); };
+        ui.showCloudError("Unable to load your financial data. Please check your internet connection and try again.");
+      });
+  }
+
+  function doMigrate() {
+    var btn = el("btn-migrate");
+    btn.disabled = true;
+    btn.textContent = "Migrating\u2026";
+    var errBox = el("migration-error");
+    errBox.hidden = true;
+    errBox.textContent = "";
+    ET.migration.migrate().then(function (result) {
+      btn.disabled = false;
+      btn.textContent = "Migrate My Data";
+      if (result.ok) {
+        return ET.database.loadAll().then(function () {
+          ui.hideMigrationScreen();
+          ui.updateUserMenu(ET.auth.getUser());
+          ui.setView("dashboard", "dashboard");
+          processRecurringNow();
+          refresh({ animateDashboard: true });
+          ui.toast("Your data has been successfully migrated to cloud storage. Your local backup remains available temporarily.");
+        });
+      }
+      errBox.textContent = result.error || "Migration could not be completed. Your existing local data is still safe on this device.";
+      errBox.hidden = false;
+    });
+  }
+
+  function skipMigration() {
+    ET.migration.saveMeta({ status: "skipped", skippedAt: Date.now() });
+    ET.database.loadAll().then(function () {
+      ui.hideMigrationScreen();
+      ui.updateUserMenu(ET.auth.getUser());
+      ui.setView("dashboard", "dashboard");
+      processRecurringNow();
+      refresh({ animateDashboard: true });
+      ui.toast("Skipped for now. You can migrate from Data & Backup later.", "info");
+    });
+  }
+
+  async function handleLogout() {
+    await ET.auth.signOut();
+    ET.database.setCloudMode(false);
+    ui.hideUserMenu();
+    ui.hideMigrationScreen();
+    ui.hideCloudError();
+    ui.hideLoading();
+    ui.showAuthScreen();
+  }
+
+  function handleAuthSubmit(formId) {
+    var form = el(formId);
+    if (formId === "login-form") {
+      ui.setAuthBusy("login", true, "Logging in\u2026");
+      ET.auth.signIn(el("login-email").value, el("login-password").value).then(function (res) {
+        ui.setAuthBusy("login", false);
+        if (res.error) {
+          showAuthError("login-error", res.error);
+          return;
+        }
+        ui.hideAuthScreen();
+        enterCloudApp(res.user);
+      });
+    } else if (formId === "signup-form") {
+      var password = el("signup-password").value;
+      var confirm = el("signup-confirm").value;
+      if (password !== confirm) {
+        showAuthError("signup-error", "Passwords do not match.");
+        return;
+      }
+      ui.setAuthBusy("signup", true, "Creating account\u2026");
+      ET.auth.signUp({
+        email: el("signup-email").value,
+        password: password,
+        fullName: el("signup-name").value
+      }).then(function (res) {
+        ui.setAuthBusy("signup", false);
+        if (res.error) {
+          showAuthError("signup-error", res.error);
+          return;
+        }
+        if (res.requiresEmailConfirmation) {
+          showAuthSuccess("signup-error", "Account created successfully. Please check your email to confirm your account.");
+          return;
+        }
+        ui.hideAuthScreen();
+        enterCloudApp(res.user);
+      });
+    } else if (formId === "forgot-form") {
+      ui.setAuthBusy("forgot", true, "Sending link\u2026");
+      ET.auth.resetPassword(el("forgot-email").value).then(function (res) {
+        ui.setAuthBusy("forgot", false);
+        if (res.error) {
+          showAuthError("forgot-error", res.error);
+          return;
+        }
+        showAuthSuccess("forgot-error", "Reset link sent. Check your email.");
+      });
+    }
+  }
+
+  function showAuthError(id, message) {
+    var box = el(id);
+    box.textContent = message;
+    box.classList.remove("is-success");
+    box.hidden = false;
+  }
+  function showAuthSuccess(id, message) {
+    var box = el(id);
+    box.textContent = message;
+    box.classList.add("is-success");
+    box.hidden = false;
+  }
+
+  /* Handle password recovery redirects (?type=recovery) by showing a reset form. */
+  function handlePasswordRecovery() {
+    try {
+      var hash = global.location && global.location.hash ? global.location.hash : "";
+      if (hash.indexOf("type=recovery") !== -1 || (global.location && global.location.search && global.location.search.indexOf("type=recovery") !== -1)) {
+        var newPw = global.prompt("Enter a new password (at least 8 characters):");
+        if (newPw) {
+          ET.auth.updatePassword(newPw).then(function (res) {
+            if (res.ok) ui.toast("Password updated. You can log in with your new password.", "success");
+            else ui.toast(res.error || "Could not update password.", "error");
+          });
+        }
+        return true;
+      }
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function init() {
+    ui.populateCategorySelects();
+    wire();
+
+    ET.supabase.init();
+    if (!ET.supabase.isConfigured()) {
+      startLocalApp();
+      return;
+    }
+
+    ET.database.subscribeToMutations();
+    ET.auth.onAuthStateChange(function (event) {
+      if (event === "SIGNED_OUT") {
+        ET.database.setCloudMode(false);
+        ui.hideUserMenu();
+        ui.showAuthScreen();
+      }
+    });
+
+    ui.showLoading();
+    ET.auth.restoreSession().then(function (user) {
+      if (user) {
+        enterCloudApp(user);
+      } else {
+        if (handlePasswordRecovery()) return;
+        ui.showAuthScreen();
+      }
+    }).catch(function () {
+      ui.showAuthScreen();
+    });
   }
 
   if (document.readyState === "loading") {

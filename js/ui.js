@@ -16,6 +16,9 @@
   var budgets = ET.budgets;
   var recurring = ET.recurring;
   var data = ET.data;
+  var auth = ET.auth;
+  var database = ET.database;
+  var migration = ET.migration;
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function el(id) { return document.getElementById(id); }
@@ -115,6 +118,13 @@
 
   function storageInfoRow(label, value) {
     return '<div class="storage-row"><span class="storage-label">' + esc(label) + '</span><span class="storage-value">' + esc(value) + "</span></div>";
+  }
+
+  function globalLocalPref(key) {
+    try { return global.localStorage.getItem(key) || ""; } catch (e) { return ""; }
+  }
+  function globalLocalSave(key, value) {
+    try { global.localStorage.setItem(key, String(value || "")); } catch (e) { /* ignore */ }
   }
 
   function badge(category) {
@@ -640,6 +650,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("view-budgets").hidden = view !== "budgets";
       el("view-recurring").hidden = view !== "recurring";
       el("view-data").hidden = view !== "data";
+      el("view-settings").hidden = view !== "settings";
 
       var titles = {
         dashboard: { title: "Dashboard", eyebrow: "Overview" },
@@ -650,7 +661,8 @@ openConfirm: function (message, title, confirmLabel) {
         reports: { title: "Reports", eyebrow: "Analytics & insights" },
         budgets: { title: "Budgets & Goals", eyebrow: "Limits & savings targets" },
         recurring: { title: "Recurring", eyebrow: "Scheduled income & expenses" },
-        data: { title: "Data & Backup", eyebrow: "Export, import & manage" }
+        data: { title: "Data & Backup", eyebrow: "Export, import & manage" },
+        settings: { title: "Settings", eyebrow: "Account & preferences" }
       };
       var key = navKey || view;
       var meta = titles[key] || titles.transactions;
@@ -1663,6 +1675,136 @@ openConfirm: function (message, title, confirmLabel) {
           storageInfoRow("Recurring", String(info.recurringTransactions)) +
         "</div>" +
         '<p class="budgets-hint">Version ' + esc(String(info.version)) + " &middot; " + created + "</p>";
+    },
+
+    /* -------------------- AUTH / LOADING / MIGRATION -------------------- */
+
+    showAuthScreen: function () {
+      el("auth-screen").hidden = false;
+      el("loading-screen").hidden = true;
+      el("migration-screen").hidden = true;
+      el("cloud-error-screen").hidden = true;
+      this.showAuthView("login");
+      this.updateLocalModeCard();
+    },
+
+    hideAuthScreen: function () {
+      el("auth-screen").hidden = true;
+    },
+
+    showAuthView: function (view) {
+      el("login-form").hidden = view !== "login";
+      el("signup-form").hidden = view !== "signup";
+      el("forgot-form").hidden = view !== "forgot";
+      var errBoxes = ["login-error", "signup-error", "forgot-error"];
+      errBoxes.forEach(function (id) {
+        var b = el(id);
+        b.hidden = true; b.textContent = "";
+      });
+    },
+
+    setAuthBusy: function (view, busy, label) {
+      var map = { login: "btn-login", signup: "btn-signup", forgot: "btn-forgot" };
+      var btn = el(map[view]);
+      if (!btn) return;
+      if (busy) {
+        btn.disabled = true;
+        btn.textContent = label || "Please wait\u2026";
+      } else {
+        btn.disabled = false;
+        btn.textContent = view === "login" ? "Log in" : view === "signup" ? "Sign up" : "Send Reset Link";
+      }
+    },
+
+    showLoading: function (text) {
+      var t = el("loading-text");
+      if (t) t.textContent = text || "Loading your financial data\u2026";
+      el("loading-screen").hidden = false;
+      el("auth-screen").hidden = true;
+      el("migration-screen").hidden = true;
+      el("cloud-error-screen").hidden = true;
+    },
+
+    hideLoading: function () {
+      el("loading-screen").hidden = true;
+    },
+
+    showMigrationScreen: function () {
+      el("migration-screen").hidden = false;
+      el("loading-screen").hidden = true;
+      el("cloud-error-screen").hidden = true;
+      var info = migration.preview();
+      var box = el("migration-preview");
+      box.innerHTML =
+        storageInfoRow("Transactions", String(info.transactions)) +
+        storageInfoRow("Budgets", String(info.budgets)) +
+        storageInfoRow("Financial goals", String(info.financialGoals)) +
+        storageInfoRow("Goal contributions", String(info.goalContributions)) +
+        storageInfoRow("Recurring transactions", String(info.recurringTransactions));
+      var err = el("migration-error");
+      err.hidden = true; err.textContent = "";
+    },
+
+    hideMigrationScreen: function () {
+      el("migration-screen").hidden = true;
+    },
+
+    showCloudError: function (message) {
+      el("cloud-error-text").textContent = message || "Unable to load your financial data. Please check your internet connection and try again.";
+      el("cloud-error-screen").hidden = false;
+      el("loading-screen").hidden = true;
+      el("migration-screen").hidden = true;
+    },
+
+    hideCloudError: function () {
+      el("cloud-error-screen").hidden = true;
+    },
+
+    updateLocalModeCard: function () {
+      var card = el("local-mode-card");
+      if (!card) return;
+      if (database.isCloudMode() || auth.hasSession()) {
+        card.innerHTML = '<p class="foot-title">Cloud sync</p><p class="foot-sub">Signed in &mdash; your data is backed up to the cloud.</p>';
+      } else {
+        card.innerHTML = '<p class="foot-title">Local &amp; private</p><p class="foot-sub">Your data stays in this browser. Nothing is sent anywhere.</p>';
+      }
+    },
+
+    updateUserMenu: function (user) {
+      var area = el("user-area");
+      if (!area) return;
+      var name = (user && user.user_metadata && user.user_metadata.full_name) || "";
+      var email = (user && user.email) || "";
+      if (!name && email) name = email.split("@")[0];
+      area.hidden = false;
+      el("user-name").textContent = name || "Account";
+      el("user-email").textContent = email || "";
+      el("user-avatar").textContent = name ? name.charAt(0).toUpperCase() : "U";
+      this.updateLocalModeCard();
+    },
+
+    hideUserMenu: function () {
+      var area = el("user-area");
+      if (area) area.hidden = true;
+      this.updateLocalModeCard();
+    },
+
+    renderSettingsPage: function () {
+      var user = auth.getUser();
+      el("settings-mode-note").textContent = database.isCloudMode() ? "Cloud account" : "Local mode";
+      el("settings-name").textContent = (user && user.user_metadata && user.user_metadata.full_name) || (user && user.email) || "—";
+      el("settings-email").textContent = (user && user.email) || "—";
+      var sel = el("settings-currency");
+      var prefs = globalLocalPref("et_currency_pref") || "AED";
+      sel.value = prefs;
+      if (database.isCloudMode()) {
+        database.fetchUserSettings().then(function (settings) {
+          if (settings && settings.currency && el("settings-currency").value === "AED") {
+            el("settings-currency").value = settings.currency;
+            globalLocalSave("et_currency_pref", settings.currency);
+          }
+        });
+      }
     },
   };
 

@@ -19,10 +19,47 @@ accounts, no external services — your data never leaves the browser.
 > generation with duplicate protection, and upcoming-payment reminders.
 > **Part 8** — Export, backup, import and data management (CSV/JSON, full
 > backups, restore/merge, safe clearing).
-> The next phase is the major architecture upgrade: authentication +
-> Supabase database migration.
+> **Part 9** — Authentication + Supabase database migration. Supabase becomes
+> the primary source of truth with Row Level Security and user-specific data.
 
 ## Features
+
+### Authentication & cloud database (Part 9)
+
+- **Supabase integration** — official supabase-js client (`js/supabase.js`),
+  credentials in `js/supabase-config.js` (anon key only — never service-role
+  keys). If no credentials are configured the app runs exactly as before in
+  LocalStorage mode.
+- **Auth screens** — matching Ledger's design: Sign Up (full name, email,
+  password, confirm), Login, and Forgot Password, with friendly validation and
+  loading states. Supabase handles all password/session logic.
+- **Session handling** — restore on load, listen for auth state changes,
+  logout returns to the login screen; cloud data is never shown to a logged-out
+  user.
+- **User profile** — auto-created in `profiles` via a database trigger; the
+  sidebar shows the user's initials, name, email, and a logout button.
+- **Database schema + RLS** (`supabase/schema.sql`) — `transactions`,
+  `budgets`, `category_budgets`, `financial_goals`, `goal_contributions`,
+  `recurring_transactions`, `user_settings`. Row Level Security is enabled on
+  every table and enforced with `auth.uid()` — a user can only read/write their
+  own rows.
+- **Data access layer** (`js/database.js`) — central `loadAll`/`syncAll` and
+  profile/settings helpers. Storage mutation events trigger debounced
+  cloud sync, so every add/edit/delete of transactions, budgets, goals and
+  recurring items is pushed to Supabase automatically.
+- **LocalStorage migration** (`js/migration.js`) — on first sign-in the app
+  detects local data, shows a preview, and offers Migrate My Data / Skip for
+  Now. Migration is idempotent (upsert by existing ids, so goal→contribution
+  relationships stay intact), failure-safe (local data is never deleted), and
+  only marks complete after a verified successful write. LocalStorage is kept
+  temporarily as a recovery backup.
+- **Multi-device** — data is loaded from Supabase on every app start/refresh,
+  so the same account sees the same data on different devices.
+- **Settings** — account details (name/email), logout, and a default-currency
+  preference saved to `user_settings`.
+- **Loading & error states** — a proper "Loading your financial data…" screen
+  and a friendly cloud-error screen with Retry/Logout, so loading is never
+  mistaken for an empty dashboard.
 
 ### Export, backup & data management (Part 8)
 
@@ -306,13 +343,19 @@ python -m http.server 8000
 /js/budgets.js      Budgets & goals domain logic (monthly/category limits, goals, validation)
 /js/recurring.js    Recurring transactions & subscriptions (schedules, due-date math, processing)
 /js/data.js         Export/backup/import & data management (CSV/JSON, restore/merge, clearing)
+/js/supabase-config.js  Supabase URL + anon key (project credentials)
+/js/supabase.js     Supabase client setup (falls back to local mode if unconfigured)
+/js/auth.js         Auth helpers (signup/login/logout/reset/session, friendly errors)
+/js/database.js     Data access layer (loadAll/syncAll, cloud mode, profile/settings)
+/js/migration.js    LocalStorage → Supabase migration (preview, idempotent, safe)
 /js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts, sheets, reports) + Chart.js management
 /js/app.js         Bootstrap, routing, validation, event wiring
+/supabase/schema.sql  Supabase tables + Row Level Security + profile trigger
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → transactions → expenses → parser → googleSheets → reports → budgets → recurring → data → ui → app`).
+(`storage → transactions → expenses → parser → googleSheets → reports → budgets → recurring → data → supabase-config → supabase → auth → database → migration → ui → app`).
 Chart.js (loaded from CDN before any script) provides the charting for the
 Reports page. Classic scripts (not ES modules) are used so the app runs
 correctly even when opened directly from the file system. All writes go through
@@ -358,8 +401,8 @@ Refund · Other Income
 
 ## Roadmap (not built yet)
 
-Authentication + Supabase database migration (primary data source) · safe
-LocalStorage data migration · notifications & polish · PDF export · Settings.
+Notifications & reminders · UI polish · comprehensive testing & bug fixing ·
+mobile optimization · deployment preparation.
 
 ---
 

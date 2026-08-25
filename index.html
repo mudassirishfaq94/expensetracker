@@ -78,15 +78,24 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h16M9 9v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
           <span>Google Sheets</span>
         </button>
-        <button class="nav-item is-disabled" type="button" disabled aria-disabled="true">
+        <button class="nav-item" data-view="settings" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 008.6 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H2a2 2 0 010-4h.09A1.65 1.65 0 003.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H8a1.65 1.65 0 001-1.51V2a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V8a1.65 1.65 0 001.51 1H22a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
           <span>Settings</span>
-          <span class="soon">Soon</span>
         </button>
       </nav>
 
       <div class="sidebar-foot">
-        <div class="foot-card">
+        <div class="user-area" id="user-area" hidden>
+          <span class="user-avatar" id="user-avatar">U</span>
+          <span class="user-meta">
+            <span class="user-name" id="user-name">User</span>
+            <span class="user-email" id="user-email"></span>
+          </span>
+          <button class="icon-btn" id="btn-logout" type="button" aria-label="Log out" title="Log out">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l4 4-4 4M14 12H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="foot-card" id="local-mode-card">
           <p class="foot-title">Local &amp; private</p>
           <p class="foot-sub">Your data stays in this browser. Nothing is sent anywhere.</p>
         </div>
@@ -860,6 +869,52 @@
           </div>
         </div>
       </section>
+
+      <!-- ===== SETTINGS VIEW ===== -->
+      <section class="view" id="view-settings" hidden aria-labelledby="view-title">
+        <div class="settings-grid">
+          <div class="data-main">
+            <section class="panel">
+              <div class="panel-head"><h2 class="panel-title">Account</h2><span class="panel-note" id="settings-mode-note">Cloud account</span></div>
+              <div class="settings-rows">
+                <div class="storage-row"><span class="storage-label">Full name</span><span class="storage-value" id="settings-name">—</span></div>
+                <div class="storage-row"><span class="storage-label">Email</span><span class="storage-value" id="settings-email">—</span></div>
+              </div>
+              <div class="data-actions">
+                <button class="btn btn-ghost" id="btn-settings-logout" type="button">Log out</button>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h2 class="panel-title">Preferences</h2></div>
+              <div class="settings-rows">
+                <div class="settings-row-flex">
+                  <div class="field" style="flex:1;margin:0">
+                    <label for="settings-currency">Default currency</label>
+                    <select id="settings-currency">
+                      <option value="AED">AED</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="SAR">SAR</option>
+                    </select>
+                  </div>
+                  <button class="btn btn-primary" id="btn-save-settings" type="button">Save</button>
+                </div>
+                <p class="budgets-hint">The default currency is used for new transactions and displays.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h2 class="panel-title">Data</h2></div>
+              <p class="budgets-hint">Export, import, backups and storage management.</p>
+              <div class="data-actions">
+                <button class="btn btn-ghost" data-view-jump="data" type="button">Open Data &amp; Backup</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -1070,8 +1125,121 @@
   <!-- ============ TOASTS ============ -->
   <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="false"></div>
 
+  <!-- ============ LOADING SCREEN ============ -->
+  <div class="auth-screen" id="loading-screen" hidden>
+    <div class="auth-card auth-card-centered">
+      <div class="auth-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="auth-sub" id="loading-text">Loading your financial data&hellip;</p>
+    </div>
+  </div>
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <div class="auth-screen" id="auth-screen" hidden>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="auth-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <h1 class="auth-title">Ledger</h1>
+        <p class="auth-sub">Your personal finance tracker</p>
+      </div>
+
+      <!-- Login -->
+      <form class="auth-form" id="login-form" novalidate>
+        <h2 class="auth-heading">Welcome back</h2>
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" autocomplete="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" autocomplete="current-password" placeholder="Your password" />
+        </div>
+        <p class="field-error" id="login-error" hidden></p>
+        <button type="submit" class="btn btn-primary btn-block" id="btn-login">Log in</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" data-auth-view="forgot">Forgot password?</button>
+          <button type="button" class="link-btn" data-auth-view="signup">Create an account</button>
+        </div>
+      </form>
+
+      <!-- Sign up -->
+      <form class="auth-form" id="signup-form" novalidate hidden>
+        <h2 class="auth-heading">Create your account</h2>
+        <div class="field">
+          <label for="signup-name">Full name</label>
+          <input type="text" id="signup-name" autocomplete="name" placeholder="Jane Doe" />
+        </div>
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input type="email" id="signup-email" autocomplete="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="signup-password">Password</label>
+          <input type="password" id="signup-password" autocomplete="new-password" placeholder="At least 8 characters" />
+        </div>
+        <div class="field">
+          <label for="signup-confirm">Confirm password</label>
+          <input type="password" id="signup-confirm" autocomplete="new-password" placeholder="Repeat password" />
+        </div>
+        <p class="field-error" id="signup-error" hidden></p>
+        <button type="submit" class="btn btn-primary btn-block" id="btn-signup">Sign up</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" data-auth-view="login">Already have an account? Log in</button>
+        </div>
+      </form>
+
+      <!-- Forgot password -->
+      <form class="auth-form" id="forgot-form" novalidate hidden>
+        <h2 class="auth-heading">Reset your password</h2>
+        <p class="auth-sub">Enter your email and we&rsquo;ll send you a reset link.</p>
+        <div class="field">
+          <label for="forgot-email">Email</label>
+          <input type="email" id="forgot-email" autocomplete="email" placeholder="you@example.com" />
+        </div>
+        <p class="field-error" id="forgot-error" hidden></p>
+        <button type="submit" class="btn btn-primary btn-block" id="btn-forgot">Send Reset Link</button>
+        <div class="auth-links">
+          <button type="button" class="link-btn" data-auth-view="login">Back to login</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MIGRATION SCREEN ============ -->
+  <div class="auth-screen" id="migration-screen" hidden>
+    <div class="auth-card auth-card-centered">
+      <h2 class="auth-heading">Welcome to Ledger&rsquo;s cloud storage</h2>
+      <p class="auth-sub">We found existing data stored on this device.</p>
+      <div class="migration-preview" id="migration-preview"></div>
+      <p class="field-error" id="migration-error" hidden></p>
+      <div class="auth-links-row">
+        <button class="btn btn-primary" id="btn-migrate" type="button">Migrate My Data</button>
+        <button class="btn btn-ghost" id="btn-skip-migration" type="button">Skip for Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CLOUD ERROR SCREEN ============ -->
+  <div class="auth-screen" id="cloud-error-screen" hidden>
+    <div class="auth-card auth-card-centered">
+      <h2 class="auth-heading">Something went wrong</h2>
+      <p class="auth-sub" id="cloud-error-text">Unable to load your financial data. Please check your internet connection and try again.</p>
+      <div class="auth-links-row">
+        <button class="btn btn-primary" id="btn-cloud-retry" type="button">Retry</button>
+        <button class="btn btn-ghost" id="btn-cloud-logout" type="button">Log out</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Chart.js (charts for the Reports page) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <!-- supabase-js (authentication + database, Part 9) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <!-- Scripts: strict load order (globals via window.ET namespace, no modules so file:// works) -->
   <script src="js/storage.js"></script>
@@ -1083,6 +1251,11 @@
   <script src="js/budgets.js"></script>
   <script src="js/recurring.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/database.js"></script>
+  <script src="js/migration.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
 </body>
