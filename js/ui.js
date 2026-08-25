@@ -12,6 +12,7 @@
   var expenses = ET.expenses;
   var storage = ET.storage;
   var sheets = ET.sheets;
+  var reports = ET.reports;
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function el(id) { return document.getElementById(id); }
@@ -82,6 +83,16 @@
   function initials(text) {
     var t = (text || "?").trim();
     return t ? t.charAt(0).toUpperCase() : "?";
+  }
+
+  var PALETTE = [
+    "#1E7A52", "#B4402E", "#C9A227", "#3A5573", "#6C3F73",
+    "#C08A2E", "#3E9366", "#C86A57", "#5878A0", "#9B5BA5",
+    "#2E9A68", "#B06A3C", "#3E8AAB", "#8A8474", "#6466C4",
+    "#3D9A6E", "#5A9A4A", "#6A9A38", "#3E9A88", "#9A7A38"
+  ];
+  function paletteColor(index) {
+    return PALETTE[index % PALETTE.length];
   }
 
   function badge(category) {
@@ -603,13 +614,15 @@ openConfirm: function (message, title, confirmLabel) {
       el("view-dashboard").hidden = view !== "dashboard";
       el("view-expenses").hidden = view !== "transactions";
       el("view-sheets").hidden = view !== "sheets";
+      el("view-reports").hidden = view !== "reports";
 
       var titles = {
         dashboard: { title: "Dashboard", eyebrow: "Overview" },
         transactions: { title: "Transactions", eyebrow: "All activity" },
         income: { title: "Income", eyebrow: "Incoming money" },
         expenses: { title: "Expenses", eyebrow: "Outgoing money" },
-        sheets: { title: "Google Sheets", eyebrow: "Cloud backup & sync" }
+        sheets: { title: "Google Sheets", eyebrow: "Cloud backup & sync" },
+        reports: { title: "Reports", eyebrow: "Analytics & insights" }
       };
       var key = navKey || view;
       var meta = titles[key] || titles.transactions;
@@ -709,6 +722,371 @@ openConfirm: function (message, title, confirmLabel) {
       box.textContent = message;
       box.classList.toggle("is-error", !!isError);
       box.hidden = false;
+    },
+
+    /* -------------------- REPORTS -------------------- */
+
+    setReportRangeChips: function (range) {
+      document.querySelectorAll("[data-range]").forEach(function (btn) {
+        btn.classList.toggle("is-active", btn.getAttribute("data-range") === range);
+      });
+      var custom = el("custom-range");
+      if (custom) custom.hidden = range !== "custom";
+    },
+
+    setReportTypeChips: function (type) {
+      document.querySelectorAll("[data-rtype]").forEach(function (btn) {
+        btn.classList.toggle("is-active", btn.getAttribute("data-rtype") === type);
+      });
+    },
+
+    populateReportCategories: function (list, keepValue) {
+      var sel = el("report-category");
+      var cats = reports.availableCategories(list, "all");
+      var current = keepValue != null ? keepValue : sel.value;
+      sel.innerHTML = '<option value="">All Categories</option>';
+      cats.forEach(function (cat) {
+        var o = document.createElement("option");
+        o.value = cat;
+        o.textContent = cat;
+        sel.appendChild(o);
+      });
+      var stillValid = current === "" || cats.indexOf(current) !== -1;
+      sel.value = stillValid ? current : "";
+      return sel.value;
+    },
+
+    renderReportsPage: function (all, filters) {
+      var hasAny = all.length > 0;
+      el("reports-empty").hidden = hasAny;
+      el("reports-content").hidden = !hasAny;
+      if (!hasAny) return;
+
+      var rangeDays = reports.detectRangeDays(filters.range, filters.start, filters.end);
+      var list = reports.filterByDateRange(all, filters.range, filters.start, filters.end);
+      list = reports.filterByType(list, filters.type);
+      list = reports.filterByCategory(list, filters.category);
+
+      if (list.length === 0) {
+        this.renderReportsEmptyState(filters);
+        return;
+      }
+
+      var data = reports.allReports(list);
+
+      /* overview cards */
+      var o = data.overview;
+      el("report-total-income").textContent = "+ " + this.formatCurrency(o.totalIncome);
+      el("report-income-foot").textContent = o.incomeCount + (o.incomeCount === 1 ? " entry" : " entries");
+      el("report-total-expenses").textContent = "− " + this.formatCurrency(o.totalExpenses);
+      el("report-expense-foot").textContent = o.expenseCount + (o.expenseCount === 1 ? " entry" : " entries");
+      var balNode = el("report-balance");
+      balNode.textContent = this.formatCurrency(o.balance);
+      balNode.classList.toggle("is-income", o.balance > 0);
+      balNode.classList.toggle("is-expense", o.balance < 0);
+      el("report-balance-foot").textContent = o.balance >= 0 ? "Positive balance" : "Negative balance";
+      var savNode = el("report-savings");
+      savNode.textContent = o.savingsRate == null ? "N/A" : o.savingsRate.toFixed(1) + "%";
+      savNode.classList.remove("is-income", "is-expense");
+      if (o.savingsRate != null) {
+        savNode.classList.toggle("is-income", o.savingsRate >= 0);
+        savNode.classList.toggle("is-expense", o.savingsRate < 0);
+      }
+
+      /* charts */
+      this.renderIncomeExpenseChart(data);
+      this.renderExpenseCategoryChart(data);
+      this.renderIncomeCategoryChart(data);
+      this.renderMonthlyTrendChart(data);
+      this.renderSpendingTrendChart(data, rangeDays);
+
+      /* insights */
+      this.renderInsights(data.insights);
+
+      /* top lists */
+      this.renderTopExpenses(data.topExpenses);
+      this.renderTopIncome(data.topIncome);
+    },
+
+    renderReportsEmptyState: function (filters) {
+      var type = filters.type === "income" ? "income"
+        : filters.type === "expense" ? "expense"
+        : null;
+      var box = el("reports-content");
+      if (!box) return;
+      box.hidden = false;
+      box.innerHTML = '';
+      var panel = document.createElement("section");
+      panel.className = "panel";
+      var msg = type === "income"
+        ? "No income data available for this period."
+        : type === "expense"
+        ? "No expense data available for this period."
+        : "No transaction data available for this period.";
+      panel.innerHTML = '<p class="reports-no-data">' + esc(msg) + "</p>";
+      box.appendChild(panel);
+    },
+
+    renderInsights: function (insights) {
+      var box = el("report-insights");
+      if (!box) return;
+      box.innerHTML = insights.map(function (text) {
+        return (
+          '<li class="insight-item">' +
+            '<span class="insight-ico" aria-hidden="true">' +
+              '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 3l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 17l-5.6 3 1.3-6.2L3 9.5l6.3-.7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' +
+            "</span>" +
+            "<span>" + esc(text) + "</span>" +
+          "</li>"
+        );
+      }).join("");
+    },
+
+    renderTopExpenses: function (rows) {
+      var box = el("report-top-expenses");
+      if (!box) return;
+      el("report-top-exp-note").textContent = rows.length + (rows.length === 1 ? " expense" : " expenses");
+      if (!rows.length) {
+        box.innerHTML = '<li class="top-item muted">No expense data for this period.</li>';
+        return;
+      }
+      box.innerHTML = rows.map(function (r, i) {
+        return (
+          '<li class="top-item">' +
+            '<span class="top-rank">' + (i + 1) + "</span>" +
+            '<span class="top-main">' +
+              '<span class="top-title">' + esc(r.title) + "</span>" +
+              '<span class="top-meta">' + esc(r.category) + " · " + esc(formatDate(r.date)) + "</span>" +
+            "</span>" +
+            '<span class="top-amt is-expense">' + formatCurrency(Number(r.amount) || 0) + "</span>" +
+          "</li>"
+        );
+      }).join("");
+    },
+
+    renderTopIncome: function (rows) {
+      var box = el("report-top-income");
+      if (!box) return;
+      el("report-top-inc-note").textContent = rows.length + (rows.length === 1 ? " income" : " incomes");
+      if (!rows.length) {
+        box.innerHTML = '<li class="top-item muted">No income data for this period.</li>';
+        return;
+      }
+      box.innerHTML = rows.map(function (r, i) {
+        return (
+          '<li class="top-item">' +
+            '<span class="top-rank">' + (i + 1) + "</span>" +
+            '<span class="top-main">' +
+              '<span class="top-title">' + esc(r.title) + "</span>" +
+              '<span class="top-meta">' + esc(r.category) + " · " + esc(formatDate(r.date)) + "</span>" +
+            "</span>" +
+            '<span class="top-amt is-income">' + formatCurrency(Number(r.amount) || 0) + "</span>" +
+          "</li>"
+        );
+      }).join("");
+    },
+
+    /* -------------------- CHART MANAGEMENT -------------------- */
+    /* Keeps one Chart instance per canvas — old charts are always destroyed
+       before re-rendering, so filters never stack or leak charts. */
+
+    renderIncomeExpenseChart: function (data) {
+      var canvas = el("report-ivs-chart");
+      var wrap = el("report-ivs-wrap");
+      var iv = data.incomeVsExpense;
+      var labels = ["Income", "Expenses"];
+      var values = [iv.income, iv.expenses];
+      var colors = ["#1E7A52", "#B4402E"];
+      if (values.every(function (v) { return v === 0; })) {
+        this.setChartEmpty(wrap, "No income or expense data for this period.");
+        return;
+      }
+      this.setChartEmpty(wrap, null);
+      this.renderChart(canvas, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Amount",
+            data: values,
+            backgroundColor: colors,
+            borderRadius: 8,
+            maxBarThickness: 90
+          }]
+        },
+        options: this.chartOptions("AED", true)
+      });
+    },
+
+    renderExpenseCategoryChart: function (data) {
+      var canvas = el("report-exp-cat-chart");
+      var wrap = el("report-exp-cat-wrap");
+      var bd = data.expenseCategory;
+      el("report-exp-cat-note").textContent = this.formatCurrency(bd.total) + " total";
+      if (!bd.rows.length) {
+        this.setChartEmpty(wrap, "No expense data for this period.");
+        return;
+      }
+      this.setChartEmpty(wrap, null);
+      this.renderChart(canvas, {
+        type: "doughnut",
+        data: {
+          labels: bd.rows.map(function (r) { return r.category; }),
+          datasets: [{
+            data: bd.rows.map(function (r) { return r.amount; }),
+            backgroundColor: bd.rows.map(function (_, i) { return paletteColor(i); }),
+            borderWidth: 2,
+            borderColor: "#FFFFFF"
+          }]
+        },
+        options: this.chartOptions("AED", false, "Category", bd.rows)
+      });
+    },
+
+    renderIncomeCategoryChart: function (data) {
+      var canvas = el("report-inc-cat-chart");
+      var wrap = el("report-inc-cat-wrap");
+      var bd = data.incomeCategory;
+      el("report-inc-cat-note").textContent = this.formatCurrency(bd.total) + " total";
+      if (!bd.rows.length) {
+        this.setChartEmpty(wrap, "No income data for this period.");
+        return;
+      }
+      this.setChartEmpty(wrap, null);
+      this.renderChart(canvas, {
+        type: "doughnut",
+        data: {
+          labels: bd.rows.map(function (r) { return r.category; }),
+          datasets: [{
+            data: bd.rows.map(function (r) { return r.amount; }),
+            backgroundColor: bd.rows.map(function (_, i) { return paletteColor(i); }),
+            borderWidth: 2,
+            borderColor: "#FFFFFF"
+          }]
+        },
+        options: this.chartOptions("AED", false, "Category", bd.rows)
+      });
+    },
+
+    renderMonthlyTrendChart: function (data) {
+      var canvas = el("report-monthly-chart");
+      var wrap = el("report-monthly-wrap");
+      var trend = data.monthlyTrend;
+      if (!trend.length) {
+        this.setChartEmpty(wrap, "No transaction data for this period.");
+        return;
+      }
+      this.setChartEmpty(wrap, null);
+      this.renderChart(canvas, {
+        type: "line",
+        data: {
+          labels: trend.map(function (m) { return m.monthLabel; }),
+          datasets: [
+            { label: "Income", data: trend.map(function (m) { return m.income; }), borderColor: "#1E7A52", backgroundColor: "rgba(30,122,82,0.10)", borderWidth: 2.5, tension: 0.3, fill: true, pointRadius: 3 },
+            { label: "Expenses", data: trend.map(function (m) { return m.expenses; }), borderColor: "#B4402E", backgroundColor: "rgba(180,64,46,0.10)", borderWidth: 2.5, tension: 0.3, fill: true, pointRadius: 3 },
+            { label: "Net", data: trend.map(function (m) { return m.balance; }), borderColor: "#C9A227", backgroundColor: "transparent", borderWidth: 2, borderDash: [5, 4], tension: 0.3, pointRadius: 3 }
+          ]
+        },
+        options: this.chartOptions("AED", true)
+      });
+    },
+
+    renderSpendingTrendChart: function (data, rangeDays) {
+      var canvas = el("report-spend-chart");
+      var wrap = el("report-spend-wrap");
+      var trend = reports.spendingTrend(data, rangeDays);
+      el("report-spend-note").textContent = trend.type === "daily" ? "Daily spending" : "Monthly spending";
+      if (!trend.labels.length) {
+        this.setChartEmpty(wrap, "No expense data for this period.");
+        return;
+      }
+      this.setChartEmpty(wrap, null);
+      this.renderChart(canvas, {
+        type: "line",
+        data: {
+          labels: trend.labels,
+          datasets: [{
+            label: "Spending",
+            data: trend.values,
+            borderColor: "#B4402E",
+            backgroundColor: "rgba(180,64,46,0.10)",
+            borderWidth: 2.5,
+            tension: 0.3,
+            fill: true,
+            pointRadius: 2
+          }]
+        },
+        options: this.chartOptions("AED", true)
+      });
+    },
+
+    setChartEmpty: function (wrap, message) {
+      if (!wrap) return;
+      var existing = wrap.querySelector(".chart-empty");
+      var canvas = wrap.querySelector("canvas");
+      if (!message) {
+        if (existing) existing.remove();
+        if (canvas) canvas.style.display = "";
+        return;
+      }
+      if (canvas) canvas.style.display = "none";
+      if (existing) {
+        existing.textContent = message;
+        return;
+      }
+      var p = document.createElement("p");
+      p.className = "chart-empty";
+      p.textContent = message;
+      wrap.appendChild(p);
+    },
+
+    renderChart: function (canvas, config) {
+      if (!canvas || typeof Chart === "undefined") return;
+      var key = canvas.id;
+      if (this._charts && this._charts[key]) {
+        this._charts[key].destroy();
+        delete this._charts[key];
+      }
+      this._charts = this._charts || {};
+      this._charts[key] = new Chart(canvas.getContext("2d"), config);
+    },
+
+    chartOptions: function (currency, gridX, tooltipTitle, breakdown) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                var val = Number(ctx.parsed.y != null ? ctx.parsed.y : ctx.parsed);
+                var label = currency + " " + val.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                if (tooltipTitle && breakdown) {
+                  var row = breakdown[ctx.dataIndex];
+                  if (row) label += " (" + row.pct + "%)";
+                }
+                return label;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { display: !!gridX, grid: { display: false }, ticks: { color: "#77857B", maxRotation: 45, autoSkip: true, maxTicksLimit: 10 } },
+          y: {
+            display: !!gridX,
+            beginAtZero: true,
+            grid: { color: "#EDE7D9" },
+            ticks: {
+              color: "#77857B",
+              callback: function (value) {
+                if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1) + "k";
+                return value;
+              }
+            }
+          }
+        }
+      };
     },
   };
 

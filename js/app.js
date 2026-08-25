@@ -15,10 +15,16 @@
 
   var el = function (id) { return document.getElementById(id); };
 
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function todayKeyOf(d) {
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+
   var state = {
     view: "dashboard",
     navKey: "dashboard",
     filters: { search: "", category: "", month: "", type: "all" },
+    reportFilters: { range: "this-month", type: "all", category: "", start: "", end: "" },
     pendingDeleteId: null
   };
 
@@ -34,6 +40,10 @@
 
     if (state.view === "sheets") {
       ui.renderSheetsPage();
+    } else if (state.view === "reports") {
+      var reportCat = ui.populateReportCategories(all, state.reportFilters.category);
+      state.reportFilters.category = reportCat;
+      ui.renderReportsPage(all, state.reportFilters);
     } else {
       ui.renderDashboard(all);
     }
@@ -54,12 +64,23 @@
   function navKeyForFilters() {
     if (state.view === "dashboard") return "dashboard";
     if (state.view === "sheets") return "sheets";
+    if (state.view === "reports") return "reports";
     if (state.filters.type === "income") return "income";
     if (state.filters.type === "expense") return "expenses";
     return "transactions";
   }
 
   function goToView(view) {
+    if (view === "reports") {
+      state.view = "reports";
+      state.navKey = "reports";
+      ui.setView("reports", "reports");
+      ui.setReportRangeChips(state.reportFilters.range);
+      ui.setReportTypeChips(state.reportFilters.type);
+      closeSidebar();
+      refresh();
+      return;
+    }
     if (view === "sheets") {
       state.view = "sheets";
       state.navKey = "sheets";
@@ -211,6 +232,7 @@
     state.navKey = navKeyForFilters();
     var view = state.view === "dashboard" ? "dashboard"
       : state.view === "sheets" ? "sheets"
+      : state.view === "reports" ? "reports"
       : "transactions";
     ui.setView(view, state.navKey);
   }
@@ -228,6 +250,13 @@
   function openAddDrawer() {
     var defaultType = state.filters.type === "income" ? "income" : "expense";
     ui.openDrawer("add", null, defaultType);
+  }
+
+  function renderReports() {
+    var all = expenses.all();
+    var cat = ui.populateReportCategories(all, state.reportFilters.category);
+    state.reportFilters.category = cat;
+    ui.renderReportsPage(all, state.reportFilters);
   }
 
   function openSidebar() {
@@ -564,6 +593,46 @@
     });
     el("btn-clear-filters").addEventListener("click", clearFilters);
     el("btn-clear-filters-2").addEventListener("click", clearFilters);
+
+    // Reports filters
+    document.querySelectorAll("[data-range]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.reportFilters.range = btn.getAttribute("data-range") || "this-month";
+        if (state.reportFilters.range === "custom") {
+          var now = new Date();
+          var start = new Date(now.getFullYear(), now.getMonth(), 1);
+          el("report-start").value = todayKeyOf(start);
+          el("report-end").value = todayKeyOf(now);
+          state.reportFilters.start = el("report-start").value;
+          state.reportFilters.end = el("report-end").value;
+        }
+        ui.setReportRangeChips(state.reportFilters.range);
+        renderReports();
+      });
+    });
+    document.querySelectorAll("[data-rtype]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.reportFilters.type = btn.getAttribute("data-rtype") || "all";
+        ui.setReportTypeChips(state.reportFilters.type);
+        renderReports();
+      });
+    });
+    el("report-category").addEventListener("change", function (e) {
+      state.reportFilters.category = e.target.value;
+      renderReports();
+    });
+    el("report-start").addEventListener("change", function (e) {
+      state.reportFilters.start = e.target.value;
+      state.reportFilters.range = "custom";
+      ui.setReportRangeChips("custom");
+      renderReports();
+    });
+    el("report-end").addEventListener("change", function (e) {
+      state.reportFilters.end = e.target.value;
+      state.reportFilters.range = "custom";
+      ui.setReportRangeChips("custom");
+      renderReports();
+    });
 
     // Google Sheets page
     el("btn-test-connection").addEventListener("click", testConnection);

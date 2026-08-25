@@ -11,7 +11,45 @@ accounts, no external services — your data never leaves the browser.
 > **Part 4** — Google Sheets integration and automatic transaction sync.
 > **Part 4.5** — Google Sheets formatting, live financial calculations and a
 > built-in Summary sheet.
-> The next phase (Part 5) will add reports, analytics, and monthly summaries.
+> **Part 5** — Reports, analytics and financial insights page with charts.
+> The next phase will add budgets, spending limits, and financial goals.
+
+## Features
+
+### Reports & analytics (Part 5)
+
+- **Dedicated Reports page** — activated in the sidebar, with professional
+  layout, full responsive design, and dynamic filtering.
+- **Date range filters** — This Month, Last Month, Last 3/6 Months, This Year,
+  All Time, and Custom Range. Every chart and total updates instantly.
+- **Transaction type filter** — All Transactions, Income Only, Expenses Only.
+- **Category filter** — dynamically populated from your transaction data.
+- **Overview cards** — Total Income, Total Expenses, Net Balance, and Savings
+  Rate (Net ÷ Income × 100, safely handles zero income).
+- **Income vs Expenses chart** — bar chart comparing totals.
+- **Expense category breakdown** — doughnut chart with amounts and percentages.
+- **Income category breakdown** — separate doughnut chart.
+- **Monthly financial trend** — line chart with Income, Expenses, and Net
+  Balance per month, including a dashed net line.
+- **Spending trend** — line chart showing daily spending for short ranges and
+  monthly spending for longer ranges (auto-chooses granularity).
+- **Largest expenses** and **largest income** — sorted lists with rank, title,
+  category, date, and amount.
+- **Financial insights** — automatically generated from your data: highest
+  category, largest transaction, month-over-month income/expense changes,
+  savings rate. Shows "Add more transactions to unlock insights" when data is
+  sparse.
+- **Month-to-month comparison** — calculates percentage change in income,
+  expenses, and balance between the two most recent months. Handles zero
+  previous values safely.
+- **Chart.js** — clean, lightweight charts with consistent palette. Charts are
+  properly destroyed and recreated on filter changes — no memory leaks or
+  duplicate instances.
+- **No data states** — every chart and section shows a clear message when
+  there are no transactions, no income, or no expenses for the selected period.
+- **Local data first** — reports use immediate LocalStorage data, never wait
+  for Google Sheets sync. All calculations are pure functions in
+  `js/reports.js`.
 
 ## Features
 
@@ -168,18 +206,20 @@ python -m http.server 8000
 /js/expenses.js    Compatibility shim (aliases ET.expenses to ET.transactions)
 /js/parser.js      Rule-based natural-language parser (smart entry)
 /js/googleSheets.js  Google Sheets sync layer (config, test, send/update/delete, retries)
-/js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts, sheets page)
+/js/reports.js      Pure calculation engine (overview, category breakdowns, trends, insights)
+/js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts, sheets, reports) + Chart.js management
 /js/app.js         Bootstrap, routing, validation, event wiring
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → transactions → expenses → parser → googleSheets → ui → app`).
-Classic scripts (not ES modules) are used so the app runs correctly even when
-opened directly from the file system. All writes go through the single
-`addTransaction()` function in `transactions.js` — the manual form and the
-natural-language parser both use it, and the Google Sheets layer watches the
-same records for syncing.
+(`storage → transactions → expenses → parser → googleSheets → reports → ui → app`).
+Chart.js (loaded from CDN before any script) provides the charting for the
+Reports page. Classic scripts (not ES modules) are used so the app runs
+correctly even when opened directly from the file system. All writes go through
+the single `addTransaction()` function in `transactions.js` — the manual form,
+the natural-language parser, and the Google Sheets layer all use the same save
+path.
 
 ## Data model
 
@@ -219,8 +259,8 @@ Refund · Other Income
 
 ## Roadmap (not built yet)
 
-Part 5: Reports & analytics · monthly summaries · category breakdowns · better
-Google Sheets reporting · Settings · Authentication / cloud sync.
+Budgets & spending limits · financial goals · better Google Sheets reporting ·
+PDF export · Settings · Authentication / cloud sync.
 
 ---
 
