@@ -9,6 +9,8 @@ accounts, no external services — your data never leaves the browser.
 > **Part 2** — income + expense transaction system with a financial summary.
 > **Part 3** — natural-language transaction input (smart entry).
 > **Part 4** — Google Sheets integration and automatic transaction sync.
+> **Part 4.5** — Google Sheets formatting, live financial calculations and a
+> built-in Summary sheet.
 > The next phase (Part 5) will add reports, analytics, and monthly summaries.
 
 ## Features
@@ -42,6 +44,37 @@ accounts, no external services — your data never leaves the browser.
   remove the matching row (with retry if the remote delete fails).
 - **Disconnect** removes only the saved connection config — all local
   transactions and your spreadsheet are untouched.
+
+### Google Sheets formatting & summary (Part 4.5)
+
+- **Professional Transactions sheet** — bold, frozen header row with dark-green
+  background, white text, borders, and centered alignment. Column widths are
+  set to readable sizes (Title 220px, Vendor 200px, Notes 250px, etc.) with
+  text wrapping enabled for long fields.
+- **Date formatting** — the Date column displays as `dd mmm yyyy` (e.g. 25 Aug
+  2026). Created At and Updated At show as `dd mmm yyyy, hh:mm AM/PM`. All
+  timestamps are stored as real Google Sheets Date objects, never raw ISO
+  strings.
+- **Amount formatting** — numbers stored as `#,##0.00` with thousands separators
+  and two decimal places. The Currency column is center-aligned.
+- **Conditional formatting** — Income rows get a subtle green tint; Expense rows
+  get a subtle red tint. Rows are easy to scan without being distracting.
+- **Summary sheet** — a separate `Summary` tab with live formulas:
+  - **Overall** — Total Income, Total Expenses, Net Balance (`SUMIF`)
+  - **Current Month** — Income This Month, Expenses This Month, Net Balance
+    (`SUMIFS` with `EOMONTH`)
+  - **Statistics** — Total Transactions, Income/Expense counts, Average Expense,
+    Largest Expense, Largest Income
+  - **Expenses by Category** and **Income by Category** — live `QUERY` formulas
+    that automatically include new categories
+  - **Monthly Summary** — a table of every month's Income, Expenses, and Net
+    Balance (powered by helper columns M/N/O on Transactions with `ARRAYFORMULA`
+    / `SUMIF` / `SORT` / `UNIQUE`)
+- **`initializeSpreadsheet()`** — safe to run any number of times via the Apps
+  Script editor. It never deletes data, never duplicates headers, never
+  overwrites manually entered values. Existing transactions are migrated
+  (string amounts converted to numbers, ISO timestamps to Date objects, legacy
+  "expense" type normalized to "Expense").
 
 ### Smart entry (natural language)
 
