@@ -652,7 +652,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin-bottom: 16px;
 }
-.status-tabs { margin: 0 0 16px; }
+.status-tabs { margin: 20px 0 16px; }
 .status-badge {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 9px; border-radius: 999px;
