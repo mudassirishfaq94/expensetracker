@@ -63,6 +63,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M12 18v4M4 12h4M16 12h4M5.64 5.64l2.83 2.83M15.54 15.54l2.83 2.83M5.64 18.36l2.83-2.83M15.54 8.46l2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>Recurring</span>
         </button>
+        <button class="nav-item" data-view="data" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 10h16M9 10v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          <span>Data &amp; Backup</span>
+        </button>
 
         <div class="nav-divider" role="separator"></div>
 
@@ -731,6 +735,131 @@
           <div id="subscriptions-list"></div>
         </section>
       </section>
+
+      <!-- ===== DATA & BACKUP VIEW ===== -->
+      <section class="view" id="view-data" hidden aria-labelledby="view-title">
+        <div class="data-grid">
+          <div class="data-main">
+            <!-- Export -->
+            <section class="panel">
+              <div class="panel-head"><h2 class="panel-title">Export data</h2><span class="panel-note">CSV &middot; JSON</span></div>
+              <div class="export-filters">
+                <div class="field-row">
+                  <div class="field">
+                    <label for="export-type">Type</label>
+                    <select id="export-type">
+                      <option value="all">All</option>
+                      <option value="income">Income</option>
+                      <option value="expense">Expenses</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="export-category">Category</label>
+                    <select id="export-category"><option value="">All categories</option></select>
+                  </div>
+                  <div class="field">
+                    <label for="export-range">Range</label>
+                    <select id="export-range">
+                      <option value="all">All time</option>
+                      <option value="this-month">This month</option>
+                      <option value="last-month">Last month</option>
+                      <option value="last-3">Last 3 months</option>
+                      <option value="this-year">This year</option>
+                      <option value="custom">Custom range</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="export-custom-range" class="custom-range" hidden>
+                  <input type="date" id="export-start" class="select" />
+                  <span class="custom-range-sep">to</span>
+                  <input type="date" id="export-end" class="select" />
+                </div>
+              </div>
+              <div class="data-actions">
+                <button class="btn btn-primary" id="btn-export-csv">Export as CSV</button>
+                <button class="btn btn-ghost" id="btn-export-json">Export as JSON</button>
+                <button class="btn btn-ghost" id="btn-export-summary">Financial Summary (CSV)</button>
+              </div>
+              <p class="data-count" id="export-count">Matching transactions: 0</p>
+            </section>
+
+            <!-- Import -->
+            <section class="panel">
+              <div class="panel-head"><h2 class="panel-title">Import data</h2><span class="panel-note">CSV &middot; JSON</span></div>
+              <div class="data-actions">
+                <label class="btn btn-primary file-btn">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                  Choose file
+                  <input type="file" id="import-file" accept=".csv,.json" hidden />
+                </label>
+                <span class="budgets-hint" id="import-file-name">No file selected</span>
+              </div>
+              <div id="import-mapping" hidden></div>
+              <div id="import-preview" hidden></div>
+              <p class="field-error" id="import-error" hidden></p>
+              <button class="btn btn-primary" id="btn-do-import" hidden>Import transactions</button>
+            </section>
+          </div>
+
+          <div class="data-side">
+            <!-- Backup & restore -->
+            <section class="panel">
+              <div class="panel-head"><h2 class="panel-title">Backup &amp; restore</h2></div>
+              <p class="budgets-hint" id="backup-reminder"></p>
+              <div class="data-actions">
+                <button class="btn btn-primary" id="btn-create-backup">Create Full Backup</button>
+              </div>
+              <div class="restore-box">
+                <label class="btn btn-ghost file-btn" style="margin-top:8px">
+                  Restore from file
+                  <input type="file" id="backup-file" accept=".json" hidden />
+                </label>
+              </div>
+              <div id="backup-preview" hidden></div>
+              <div id="restore-mode" hidden>
+                <div class="restore-options radio-group">
+                  <label class="radio"><input type="radio" name="restore-mode" value="replace" /> Replace existing data</label>
+                  <label class="radio"><input type="radio" name="restore-mode" value="merge" checked /> Merge with existing</label>
+                </div>
+                <div class="field" id="restore-confirm-field" hidden>
+                  <label for="restore-confirm-input">Type <strong>RESTORE</strong> to enable Replace</label>
+                  <input type="text" id="restore-confirm-input" autocomplete="off" />
+                </div>
+                <button class="btn btn-danger" id="btn-restore" disabled>Restore</button>
+              </div>
+            </section>
+
+            <!-- Storage info -->
+            <section class="panel">
+              <div class="panel-head"><h2 class="panel-title">Storage information</h2></div>
+              <div id="storage-info" class="storage-info"></div>
+            </section>
+
+            <!-- Danger zone -->
+            <section class="panel danger-zone">
+              <div class="panel-head"><h2 class="panel-title">Danger zone</h2><span class="panel-note">Irreversible</span></div>
+              <div class="danger-item">
+                <p class="danger-title">Clear all transactions</p>
+                <p class="budgets-hint">Removes transactions only. Budgets, goals and recurring definitions stay.</p>
+                <div class="danger-confirm"><input type="text" id="confirm-clear-tx" placeholder="Type CLEAR TRANSACTIONS" /></div>
+                <button class="btn btn-danger" id="btn-clear-tx" disabled>Clear transactions</button>
+              </div>
+              <div class="danger-item">
+                <p class="danger-title">Clear test data</p>
+                <p class="budgets-hint">Removes transactions, budgets, goals and recurring definitions.</p>
+                <div class="danger-confirm"><input type="text" id="confirm-clear-test" placeholder="Type CLEAR TEST DATA" /></div>
+                <button class="btn btn-danger" id="btn-clear-test" disabled>Clear test data</button>
+              </div>
+              <div class="danger-item">
+                <p class="danger-title">Reset application</p>
+                <p class="budgets-hint">Removes ALL application data including Google Sheets config. Returns to first-use state.</p>
+                <div class="danger-confirm"><input type="text" id="confirm-reset" placeholder="Type RESET EVERYTHING" /></div>
+                <button class="btn btn-danger" id="btn-reset" disabled>Reset application</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -953,6 +1082,7 @@
   <script src="js/reports.js"></script>
   <script src="js/budgets.js"></script>
   <script src="js/recurring.js"></script>
+  <script src="js/data.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
 </body>

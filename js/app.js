@@ -48,6 +48,8 @@
       ui.renderBudgetsPage(all);
     } else if (state.view === "recurring") {
       ui.renderRecurringPage();
+    } else if (state.view === "data") {
+      ui.renderDataPage(all);
     } else {
       ui.renderDashboard(all);
     }
@@ -74,12 +76,21 @@
     if (state.view === "reports") return "reports";
     if (state.view === "budgets") return "budgets";
     if (state.view === "recurring") return "recurring";
+    if (state.view === "data") return "data";
     if (state.filters.type === "income") return "income";
     if (state.filters.type === "expense") return "expenses";
     return "transactions";
   }
 
   function goToView(view) {
+    if (view === "data") {
+      state.view = "data";
+      state.navKey = "data";
+      ui.setView("data", "data");
+      closeSidebar();
+      refresh();
+      return;
+    }
     if (view === "recurring") {
       state.view = "recurring";
       state.navKey = "recurring";
@@ -262,6 +273,7 @@
       : state.view === "reports" ? "reports"
       : state.view === "budgets" ? "budgets"
       : state.view === "recurring" ? "recurring"
+      : state.view === "data" ? "data"
       : "transactions";
     ui.setView(view, state.navKey);
   }
@@ -707,6 +719,228 @@
     el("nl-input").focus();
   }
 
+  /* ------------------- Data & Backup handlers ------------------- */
+  var importState = null;
+
+  function buildFilename(prefix, ext) {
+    var d = new Date();
+    var pad = function (n) { return String(n).padStart(2, "0"); };
+    var stamp = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    return prefix + "-" + stamp + "." + ext;
+  }
+
+  function downloadFile(filename, content, mimeType) {
+    var blob = new Blob([content], { type: mimeType });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function readFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result)); };
+      reader.onerror = function () { reject(new Error("Could not read the selected file.")); };
+      reader.readAsText(file);
+    });
+  }
+
+  function readExportFilters() {
+    return {
+      type: el("export-type").value,
+      category: el("export-category").value,
+      range: el("export-range").value,
+      start: el("export-start").value,
+      end: el("export-end").value
+    };
+  }
+
+  function doExportCsv() {
+    var list = ET.data.filterForExport(expenses.all(), readExportFilters());
+    if (!list.length) { ui.toast("No transactions match the current filters.", "info"); return; }
+    downloadFile(buildFilename("ledger-transactions", "csv"), ET.data.exportTransactionsCSV(list), "text/csv;charset=utf-8");
+    ui.toast("Exported " + list.length + " transaction(s) as CSV.");
+  }
+
+  function doExportJson() {
+    var list = ET.data.filterForExport(expenses.all(), readExportFilters());
+    if (!list.length) { ui.toast("No transactions match the current filters.", "info"); return; }
+    downloadFile(buildFilename("ledger-transactions", "json"), ET.data.exportTransactionsJSON(list), "application/json");
+    ui.toast("Exported " + list.length + " transaction(s) as JSON.");
+  }
+
+  function doExportSummary() {
+    var list = ET.data.filterForExport(expenses.all(), readExportFilters());
+    downloadFile(buildFilename("ledger-financial-summary", "csv"), ET.data.exportFinancialSummaryCSV(list), "text/csv;charset=utf-8");
+    ui.toast("Financial summary exported.");
+  }
+
+  function showImportError(message) {
+    var err = el("import-error");
+    if (!err) return;
+    err.textContent = message;
+    err.hidden = false;
+    el("import-preview").hidden = true;
+    el("import-mapping").hidden = true;
+    var btn = el("btn-do-import");
+    if (btn) btn.hidden = true;
+  }
+
+  function handleImportFile(text, filename) {
+    importState = null;
+    var err = el("import-error");
+    if (err) { err.hidden = true; err.textContent = ""; }
+    var lower = filename.toLowerCase();
+    try {
+      if (lower.indexOf(".csv") !== -1) {
+        var rows = ET.data.parseCSV(text);
+        if (rows.length < 2) { showImportError("The CSV file does not contain enough data."); return; }
+        var header = rows[0];
+        var body = rows.slice(1);
+        var indices = ET.data.detectColumnIndices(header);
+        if (indices.date < 0 || indices.amount < 0) {
+          showImportError("Could not detect required columns (Date and Amount). Use the mapping below to assign them.");
+          indices = { date: 0, title: 1, amount: 2, type: -1, category: 3, vendor: -1, notes: -1 };
+        }
+        importState = { type: "csv", rows: body, header: header, indices: indices };
+        ui.renderImportMapping(header, indices);
+        el("import-file-name").textContent = filename;
+        previewImportNow();
+      } else {
+        var parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) { showImportError("The JSON file must contain an array of transactions."); return; }
+        var candidates = ET.data.buildImportedRowsFromObjects(parsed, "expense");
+        importState = { type: "json", candidates: candidates.candidates };
+        el("import-file-name").textContent = filename;
+        previewImportNow();
+      }
+    } catch (e) {
+      showImportError("Unable to import this file. Reason: " + (e && e.message ? e.message : "unexpected error") + ".");
+    }
+  }
+
+  function previewImportNow() {
+    if (!importState) return;
+    var candidates;
+    if (importState.type === "csv") {
+      var mapping = ui.readImportMapping();
+      var built = ET.data.buildImportedRows(importState.rows, mapping, el("import-default-type").value);
+      candidates = built.candidates;
+    } else {
+      candidates = importState.candidates;
+    }
+    var preview = ET.data.previewImport(candidates, expenses.all());
+    ui.renderImportPreview(preview, candidates, el("import-file-name").textContent);
+  }
+
+  function doImport() {
+    if (!importState) return;
+    var candidates;
+    if (importState.type === "csv") {
+      var mapping = ui.readImportMapping();
+      candidates = ET.data.buildImportedRows(importState.rows, mapping, el("import-default-type").value).candidates;
+    } else {
+      candidates = importState.candidates;
+    }
+    var preview = ET.data.previewImport(candidates, expenses.all());
+    if (!preview.valid.length) { ui.toast("No valid transactions to import.", "info"); return; }
+    var result = ET.data.importValidRows(preview);
+    refresh();
+    ui.toast("Import complete: " + result.imported + " imported, " + result.skippedDuplicates + " duplicates skipped, " + result.skippedInvalid + " invalid skipped.");
+    /* Offer to sync to Google Sheets through the existing queue. */
+    if (ET.sheets.isConnected() && result.imported > 0) {
+      ui.toast("New transactions are pending sync. Use Sync All on the Google Sheets page.", "info");
+    }
+  }
+
+  function doCreateBackup() {
+    var backup = ET.data.createFullBackup();
+    downloadFile(buildFilename("ledger-backup", "json"), JSON.stringify(backup, null, 2), "application/json");
+    ui.renderDataPage(expenses.all());
+    ui.toast("Full backup downloaded.");
+  }
+
+  function handleBackupFile(file) {
+    readFile(file).then(function (text) {
+      var obj;
+      try { obj = JSON.parse(text); }
+      catch (e) { ui.toast("Unable to import this file: it is not valid JSON.", "error"); return; }
+      var v = ET.data.validateBackup(obj);
+      if (!v.valid) { ui.toast("Unable to import this file. Reason: " + v.reason, "error"); return; }
+      state.backupObject = obj;
+      var info = ET.data.previewBackup(obj);
+      ui.renderBackupPreview(info);
+      var mode = el("restore-mode");
+      if (mode) mode.hidden = false;
+      el("restore-confirm-input").value = "";
+      el("btn-restore").disabled = true;
+      ui.toast("Backup file loaded. Review the preview and choose restore mode.");
+    }).catch(function (e) {
+      ui.toast("Could not read the backup file: " + (e && e.message ? e.message : "unknown error"), "error");
+    });
+  }
+
+  function setRestoreMode() {
+    var replace = document.querySelector('input[name="restore-mode"]:checked');
+    var isReplace = replace && replace.value === "replace";
+    el("restore-confirm-field").hidden = !isReplace;
+    updateRestoreButton();
+  }
+
+  function updateRestoreButton() {
+    var replace = document.querySelector('input[name="restore-mode"]:checked');
+    var isReplace = replace && replace.value === "replace";
+    var ok = !isReplace || el("restore-confirm-input").value.trim() === "RESTORE";
+    el("btn-restore").disabled = !ok || !state.backupObject;
+  }
+
+  function doRestore() {
+    if (!state.backupObject) return;
+    var replace = document.querySelector('input[name="restore-mode"]:checked');
+    var isReplace = replace && replace.value === "replace";
+    var backup = state.backupObject;
+    state.pendingAction = function () {
+      var result;
+      if (isReplace) {
+        result = ET.data.restoreBackup(backup);
+        ui.toast("Backup restored (" + result.transactions + " transactions).");
+      } else {
+        result = ET.data.mergeBackup(backup, expenses.all());
+        ui.toast("Merge complete: " + result.imported + " new transactions, " + result.skippedDuplicates + " duplicates skipped.");
+      }
+      state.backupObject = null;
+      el("backup-preview").hidden = true;
+      el("restore-mode").hidden = true;
+      refresh();
+    };
+    ui.openConfirm(
+      isReplace
+        ? "Replace all current application data with the backup?\n\nThis cannot be undone. Consider downloading a current backup first."
+        : "Merge the backup into current data?\n\nNew records will be added and existing IDs will be skipped.",
+      isReplace ? "Replace existing data?" : "Merge backup?",
+      isReplace ? "Replace" : "Merge"
+    );
+  }
+
+  function setupDangerButton(inputId, btnId, phrase, action) {
+    var input = el(inputId);
+    var btn = el(btnId);
+    if (!input || !btn) return;
+    input.addEventListener("input", function () {
+      btn.disabled = input.value.trim() !== phrase;
+    });
+    btn.addEventListener("click", function () {
+      if (input.value.trim() !== phrase) return;
+      state.pendingAction = action;
+      ui.openConfirm("This will " + phrase.toLowerCase().replace(/_/g, " ") + ".\n\nConsider downloading a full backup first.", "Are you sure?", "Continue");
+    });
+  }
+
   function wire() {
     document.querySelectorAll(".nav-item[data-view]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -902,6 +1136,62 @@
       btn.addEventListener("click", function () {
         ui.setRecurringTab(btn.getAttribute("data-rtab"));
       });
+    });
+
+    // Data & Backup
+    // Export filter changes
+    ["export-type","export-category","export-range"].forEach(function (id) {
+      el(id).addEventListener("change", function () { ui.updateExportCount(expenses.all()); });
+    });
+    el("export-start").addEventListener("change", function () { ui.updateExportCount(expenses.all()); });
+    el("export-end").addEventListener("change", function () { ui.updateExportCount(expenses.all()); });
+    el("export-range").addEventListener("change", function () {
+      el("export-custom-range").hidden = el("export-range").value !== "custom";
+    });
+
+    el("btn-export-csv").addEventListener("click", doExportCsv);
+    el("btn-export-json").addEventListener("click", doExportJson);
+    el("btn-export-summary").addEventListener("click", doExportSummary);
+
+    // Import
+    el("import-file").addEventListener("change", function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      handleImportFile(file, file.name);
+    });
+    el("import-mapping").addEventListener("change", function () {
+      previewImportNow();
+    });
+    el("btn-do-import").addEventListener("click", doImport);
+
+    // Backup
+    el("btn-create-backup").addEventListener("click", doCreateBackup);
+    el("backup-file").addEventListener("change", function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      handleBackupFile(file);
+    });
+    document.querySelectorAll('input[name="restore-mode"]').forEach(function (r) {
+      r.addEventListener("change", setRestoreMode);
+    });
+    el("restore-confirm-input").addEventListener("input", updateRestoreButton);
+    el("btn-restore").addEventListener("click", doRestore);
+
+    // Danger zone
+    setupDangerButton("confirm-clear-tx", "btn-clear-tx", "CLEAR TRANSACTIONS", function () {
+      ET.data.clearTransactions();
+      refresh();
+      ui.toast("All transactions cleared.");
+    });
+    setupDangerButton("confirm-clear-test", "btn-clear-test", "CLEAR TEST DATA", function () {
+      ET.data.clearTestData();
+      refresh();
+      ui.toast("Test data cleared.");
+    });
+    setupDangerButton("confirm-reset", "btn-reset", "RESET EVERYTHING", function () {
+      ET.data.resetApplication();
+      refresh();
+      ui.toast("Application has been reset.");
     });
 
     el("btn-menu").addEventListener("click", openSidebar);

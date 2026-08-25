@@ -21,7 +21,12 @@
   var GOALS_KEY = "et_goals_v1";
   /* Recurring transactions & subscriptions (Part 7). */
   var RECURRING_KEY = "et_recurring_v1";
+  /* Backup metadata (Part 8). */
+  var BACKUP_META_KEY = "et_backup_meta_v1";
   var DEFAULT_CURRENCY = "AED";
+
+  /* All keys owned by this application — used for safe full reset. */
+  var APP_KEYS = [STORAGE_KEY, SHEETS_CONFIG_KEY, SHEETS_DELETES_KEY, BUDGETS_KEY, GOALS_KEY, RECURRING_KEY, BACKUP_META_KEY];
 
   var TYPES = ["expense", "income"];
 
@@ -354,6 +359,64 @@
         return true;
       } catch (err) {
         console.error("[Ledger] Could not save recurring transactions:", err);
+        return false;
+      }
+    },
+
+    /* ---- Data management (Part 8) ---- */
+    /* Overwrite the whole transaction store (used by restore). */
+    replaceAllTransactions: function (list) {
+      try {
+        global.localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.isArray(list) ? list : []));
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not write transactions:", err);
+        return false;
+      }
+    },
+
+    clearTransactions: function () {
+      try {
+        global.localStorage.removeItem(STORAGE_KEY);
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not clear transactions:", err);
+        return false;
+      }
+    },
+
+    /* Remove all financial test data (transactions, budgets, goals, recurring). */
+    clearTestData: function () {
+      [STORAGE_KEY, BUDGETS_KEY, GOALS_KEY, RECURRING_KEY].forEach(function (k) {
+        try { global.localStorage.removeItem(k); } catch (e) { /* ignore */ }
+      });
+      return true;
+    },
+
+    /* Remove every key this application owns (full reset). */
+    resetAll: function () {
+      APP_KEYS.forEach(function (k) {
+        try { global.localStorage.removeItem(k); } catch (e) { /* ignore */ }
+      });
+      return true;
+    },
+
+    getBackupMeta: function () {
+      try {
+        var raw = global.localStorage.getItem(BACKUP_META_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        console.error("[Ledger] Could not read backup metadata:", err);
+        return null;
+      }
+    },
+
+    saveBackupMeta: function (meta) {
+      try {
+        global.localStorage.setItem(BACKUP_META_KEY, JSON.stringify(meta || {}));
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not save backup metadata:", err);
         return false;
       }
     },

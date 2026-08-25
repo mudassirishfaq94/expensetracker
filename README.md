@@ -17,9 +17,43 @@ accounts, no external services — your data never leaves the browser.
 > savings goals with contribution tracking.
 > **Part 7** — Recurring transactions, subscription tracking, automatic
 > generation with duplicate protection, and upcoming-payment reminders.
-> The next phase will add export/backup, notifications and polish.
+> **Part 8** — Export, backup, import and data management (CSV/JSON, full
+> backups, restore/merge, safe clearing).
+> The next phase is the major architecture upgrade: authentication +
+> Supabase database migration.
 
 ## Features
+
+### Export, backup & data management (Part 8)
+
+- **Dedicated Data & Backup page** — export, import, backup/restore, storage
+  information, and a clearly separated danger zone.
+- **Export transactions** — filter by type (all/income/expenses), category,
+  and date range (this month, last month, last 3 months, this year, all time,
+  custom), then download CSV or JSON. CSV is Excel/Sheets compatible with
+  correct escaping for commas, quotes, and line breaks.
+- **Financial summary export** — download a CSV summary for the selected period
+  (total income, expenses, net balance, savings rate, top categories).
+- **Full backups** — a single JSON file containing transactions, budgets,
+  category budgets, goals, contributions, recurring definitions, version, and
+  exported timestamp. Backup metadata tracks when the last backup was made.
+- **Restore & merge** — upload a backup, preview what it contains, then either
+  Replace (type RESTORE to confirm) or Merge (new IDs imported, existing IDs
+  skipped).
+- **Import transactions** — CSV or JSON. CSV columns are auto-detected and
+  remappable (date, title, amount, type, category, vendor, notes) with a
+  default type fallback. Every row is validated before anything is written.
+- **Import preview** — shows valid rows in a table plus counts and reasons for
+  invalid and duplicate rows; nothing imports until confirmed.
+- **Duplicate protection** — imports dedupe by existing transaction ID and by a
+  fingerprint of date + type + amount + title + category, so re-importing a
+  file never creates duplicates. Imported records are marked pending sync and
+  flow through the existing Google Sheets queue.
+- **Storage information** — transaction/recurring/goal/contribution counts,
+  estimated data size, and last backup date, plus a gentle backup reminder.
+- **Danger zone** — Clear Transactions (type CLEAR TRANSACTIONS), Clear Test
+  Data (type CLEAR TEST DATA), and Reset Application (type RESET EVERYTHING).
+  Reset only removes this application's own LocalStorage keys.
 
 ### Recurring transactions & subscriptions (Part 7)
 
@@ -271,13 +305,14 @@ python -m http.server 8000
 /js/reports.js      Pure calculation engine (overview, category breakdowns, trends, insights)
 /js/budgets.js      Budgets & goals domain logic (monthly/category limits, goals, validation)
 /js/recurring.js    Recurring transactions & subscriptions (schedules, due-date math, processing)
+/js/data.js         Export/backup/import & data management (CSV/JSON, restore/merge, clearing)
 /js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts, sheets, reports) + Chart.js management
 /js/app.js         Bootstrap, routing, validation, event wiring
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → transactions → expenses → parser → googleSheets → reports → budgets → recurring → ui → app`).
+(`storage → transactions → expenses → parser → googleSheets → reports → budgets → recurring → data → ui → app`).
 Chart.js (loaded from CDN before any script) provides the charting for the
 Reports page. Classic scripts (not ES modules) are used so the app runs
 correctly even when opened directly from the file system. All writes go through
@@ -323,8 +358,8 @@ Refund · Other Income
 
 ## Roadmap (not built yet)
 
-Export / backup · notifications & polish · better Google Sheets reporting ·
-PDF export · Settings · Authentication / cloud sync.
+Authentication + Supabase database migration (primary data source) · safe
+LocalStorage data migration · notifications & polish · PDF export · Settings.
 
 ---
 

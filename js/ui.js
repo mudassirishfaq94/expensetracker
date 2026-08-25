@@ -15,6 +15,7 @@
   var reports = ET.reports;
   var budgets = ET.budgets;
   var recurring = ET.recurring;
+  var data = ET.data;
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function el(id) { return document.getElementById(id); }
@@ -110,6 +111,10 @@
     var now = new Date();
     now.setHours(0, 0, 0, 0);
     return Math.round((d - now) / 86400000);
+  }
+
+  function storageInfoRow(label, value) {
+    return '<div class="storage-row"><span class="storage-label">' + esc(label) + '</span><span class="storage-value">' + esc(value) + "</span></div>";
   }
 
   function badge(category) {
@@ -634,6 +639,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("view-reports").hidden = view !== "reports";
       el("view-budgets").hidden = view !== "budgets";
       el("view-recurring").hidden = view !== "recurring";
+      el("view-data").hidden = view !== "data";
 
       var titles = {
         dashboard: { title: "Dashboard", eyebrow: "Overview" },
@@ -643,7 +649,8 @@ openConfirm: function (message, title, confirmLabel) {
         sheets: { title: "Google Sheets", eyebrow: "Cloud backup & sync" },
         reports: { title: "Reports", eyebrow: "Analytics & insights" },
         budgets: { title: "Budgets & Goals", eyebrow: "Limits & savings targets" },
-        recurring: { title: "Recurring", eyebrow: "Scheduled income & expenses" }
+        recurring: { title: "Recurring", eyebrow: "Scheduled income & expenses" },
+        data: { title: "Data & Backup", eyebrow: "Export, import & manage" }
       };
       var key = navKey || view;
       var meta = titles[key] || titles.transactions;
@@ -1497,6 +1504,165 @@ openConfirm: function (message, title, confirmLabel) {
       });
       el("rtab-recurring").hidden = tab !== "recurring";
       el("rtab-subscriptions").hidden = tab !== "subscriptions";
+    },
+
+    /* -------------------- DATA & BACKUP -------------------- */
+
+    renderDataPage: function (all) {
+      this.renderExportCategoryOptions(all);
+      this.updateExportCount(all);
+      this.renderStorageInfo();
+      this.renderBackupReminder();
+    },
+
+    renderExportCategoryOptions: function (all, keepValue) {
+      var sel = el("export-category");
+      if (!sel) return;
+      var current = keepValue != null ? keepValue : sel.value;
+      var cats = {};
+      all.forEach(function (t) { if (t.category) cats[t.category] = true; });
+      sel.innerHTML = '<option value="">All categories</option>';
+      Object.keys(cats).sort().forEach(function (cat) {
+        var o = document.createElement("option");
+        o.value = cat; o.textContent = cat; sel.appendChild(o);
+      });
+      sel.value = cats[current] ? current : "";
+    },
+
+    updateExportCount: function (all) {
+      var count = el("export-count");
+      if (!count) return;
+      var list = all;
+      var type = el("export-type").value;
+      var cat = el("export-category").value;
+      var range = el("export-range").value;
+      if (range !== "all") list = reports.filterByDateRange(list, range, el("export-start").value, el("export-end").value);
+      list = reports.filterByType(list, type);
+      list = reports.filterByCategory(list, cat);
+      count.textContent = "Matching transactions: " + list.length;
+    },
+
+    renderStorageInfo: function () {
+      var box = el("storage-info");
+      if (!box) return;
+      var info = data.storageOverview();
+      var size = info.sizeBytes < 1024
+        ? info.sizeBytes + " B"
+        : (info.sizeBytes / 1024).toFixed(1) + " KB";
+      var lastBackup = info.lastBackupAt ? formatRelativeTime(info.lastBackupAt) : "Never";
+      box.innerHTML =
+        storageInfoRow("Transactions", String(info.transactions)) +
+        storageInfoRow("Recurring transactions", String(info.recurring)) +
+        storageInfoRow("Financial goals", String(info.goals)) +
+        storageInfoRow("Goal contributions", String(info.contributions)) +
+        storageInfoRow("Estimated data size", size) +
+        storageInfoRow("Last backup", lastBackup);
+    },
+
+    renderBackupReminder: function () {
+      var box = el("backup-reminder");
+      if (!box) return;
+      var info = data.storageOverview();
+      var last = info.lastBackupAt;
+      var days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+      if (days != null && days <= 14) {
+        box.innerHTML = "Last backup: <strong>" + formatRelativeTime(last) + "</strong>.";
+      } else {
+        box.innerHTML = "You have not created a backup recently.<br>Last backup: <strong>" + (last ? formatRelativeTime(last) : "Never") + "</strong>.";
+      }
+    },
+
+    renderImportMapping: function (headerRow, indices) {
+      var box = el("import-mapping");
+      if (!box) return;
+      box.hidden = false;
+      var fields = ["date", "title", "amount", "type", "category", "vendor", "notes"];
+      var labels = { date: "Transaction date *", title: "Title", amount: "Amount *", type: "Type", category: "Category", vendor: "Vendor / source", notes: "Notes" };
+      var html = '<h3 class="budget-section-title" style="margin:10px 0 8px">Map CSV columns</h3><div class="field-row">';
+      fields.forEach(function (f) {
+        html += '<div class="field"><label for="map-' + f + '">' + labels[f] + "</label><select id=\"map-" + f + "\">";
+        html += '<option value="-1">— ignore —</option>';
+        headerRow.forEach(function (h, i) {
+          html += '<option value="' + i + '">' + esc(h) + "</option>";
+        });
+        html += "</select></div>";
+      });
+      html += '<div class="field"><label for="import-default-type">Default type (if missing)</label>' +
+        '<select id="import-default-type"><option value="expense">Expense</option><option value="income">Income</option></select></div>';
+      html += "</div>";
+      box.innerHTML = html;
+      fields.forEach(function (f) {
+        var idx = indices[f];
+        var sel = document.getElementById("map-" + f);
+        if (sel && idx != null && idx >= 0) sel.value = String(idx);
+      });
+      box.setAttribute("data-file-type", "csv");
+    },
+
+    readImportMapping: function () {
+      var fields = ["date", "title", "amount", "type", "category", "vendor", "notes"];
+      var mapping = {};
+      fields.forEach(function (f) {
+        var sel = document.getElementById("map-" + f);
+        mapping[f] = sel ? Number(sel.value) : -1;
+      });
+      return mapping;
+    },
+
+    renderImportPreview: function (preview, candidates, filename) {
+      var box = el("import-preview");
+      if (!box) return;
+      box.hidden = false;
+      var valid = preview.valid, invalid = preview.invalid, duplicates = preview.duplicates;
+      var html = '<h3 class="budget-section-title" style="margin:10px 0 6px">Import preview</h3>';
+      html += '<p class="budgets-hint">' + esc(filename || "Imported file") + " &middot; " + preview.total + " row(s) detected.</p>";
+      if (!valid.length && !invalid.length && !duplicates.length) {
+        html += '<p class="budgets-hint">No importable rows found.</p>';
+      }
+      if (valid.length) {
+        html += '<div class="import-summary is-ok">Valid: ' + valid.length + "</div>";
+        html += '<div class="import-table-wrap"><table class="import-table"><thead><tr><th>#</th><th>Date</th><th>Title</th><th>Type</th><th>Category</th><th>Amount</th></tr></thead><tbody>';
+        valid.slice(0, 15).forEach(function (c) {
+          var d = c.data;
+          html += "<tr><td>" + c.rowIndex + "</td><td>" + esc(formatDate(d.date)) + "</td><td>" + esc(d.title) + "</td><td>" + esc(d.type === "income" ? "Income" : "Expense") + "</td><td>" + esc(d.category) + "</td><td>" + formatCurrency(d.amount) + "</td></tr>";
+        });
+        if (valid.length > 15) html += '<tr><td colspan="6" class="import-more">… and ' + (valid.length - 15) + " more</td></tr>";
+        html += "</tbody></table></div>";
+      }
+      if (invalid.length) {
+        html += '<div class="import-summary is-error">Invalid: ' + invalid.length + '</div><ul class="import-issues">';
+        invalid.forEach(function (c) {
+          html += '<li>Row ' + c.rowIndex + ": " + esc(c.errors.join("; ")) + "</li>";
+        });
+        html += "</ul>";
+      }
+      if (duplicates.length) {
+        html += '<div class="import-summary is-warn">Duplicates (will be skipped): ' + duplicates.length + "</div>";
+      }
+      box.innerHTML = html;
+      var btn = el("btn-do-import");
+      if (btn) {
+        btn.hidden = valid.length === 0;
+        btn.textContent = "Import " + valid.length + " transaction" + (valid.length === 1 ? "" : "s");
+        btn.setAttribute("data-valid-count", String(valid.length));
+      }
+    },
+
+    renderBackupPreview: function (info) {
+      var box = el("backup-preview");
+      if (!box) return;
+      box.hidden = false;
+      var created = info.exportedAt ? "Created: " + formatRelativeTime(new Date(info.exportedAt).getTime()) : "";
+      box.innerHTML =
+        '<h3 class="budget-section-title" style="margin:10px 0 6px">Backup preview</h3>' +
+        '<div class="storage-info">' +
+          storageInfoRow("Transactions", String(info.transactions)) +
+          storageInfoRow("Budgets", String(info.budgets)) +
+          storageInfoRow("Financial goals", String(info.financialGoals)) +
+          storageInfoRow("Goal contributions", String(info.goalContributions)) +
+          storageInfoRow("Recurring", String(info.recurringTransactions)) +
+        "</div>" +
+        '<p class="budgets-hint">Version ' + esc(String(info.version)) + " &middot; " + created + "</p>";
     },
   };
 

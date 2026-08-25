@@ -149,6 +149,25 @@
       return record;
     },
 
+    /**
+     * Import a transaction preserving its original id, timestamps and
+     * syncStatus. Used by data management (backup restore, CSV/JSON import).
+     * Does not re-generate ids or timestamps.
+     */
+    importRecord: function (input) {
+      if (!input || !input.id) return null;
+      var clean = normalizeInput(input);
+      var record = buildRecord(
+        clean,
+        input.id,
+        input.createdAt != null ? Number(input.createdAt) : Date.now(),
+        input.updatedAt != null ? Number(input.updatedAt) : Date.now()
+      );
+      if (input.syncStatus) record.syncStatus = input.syncStatus;
+      storage.add(record);
+      return record;
+    },
+
     create: function (input) {
       return this.addTransaction(input);
     },
