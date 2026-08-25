@@ -757,20 +757,46 @@ openConfirm: function (message, title, confirmLabel) {
     },
 
     renderReportsPage: function (all, filters) {
+      /* Always start from scratch: reset every state so a previous empty
+         result can never keep the page stuck. */
+      var filteredEmpty = el("reports-filtered-empty");
+      var content = el("reports-content");
       var hasAny = all.length > 0;
+
+      if (filteredEmpty) filteredEmpty.hidden = true;
       el("reports-empty").hidden = hasAny;
-      el("reports-content").hidden = !hasAny;
-      if (!hasAny) return;
+      if (content) content.hidden = !hasAny;
 
-      var rangeDays = reports.detectRangeDays(filters.range, filters.start, filters.end);
-      var list = reports.filterByDateRange(all, filters.range, filters.start, filters.end);
-      list = reports.filterByType(list, filters.type);
-      list = reports.filterByCategory(list, filters.category);
-
-      if (list.length === 0) {
-        this.renderReportsEmptyState(filters);
+      if (!hasAny) {
+        this.destroyAllCharts();
         return;
       }
+
+      var rangeDays = reports.detectRangeDays(filters.range, filters.start, filters.end);
+      var list = reports.getFilteredReportTransactions(all, filters);
+
+      if (list.length === 0) {
+        /* Temporary empty state — the DOM stays intact so a later filter
+           change can always restore the full reports. */
+        this.destroyAllCharts();
+        if (content) content.hidden = true;
+        if (filteredEmpty) {
+          var type = filters.type === "income" ? "income"
+            : filters.type === "expense" ? "expense"
+            : null;
+          var msg = type === "income"
+            ? "No income data available for this period."
+            : type === "expense"
+            ? "No expense data available for this period."
+            : "No transactions found for this period.";
+          var feText = el("reports-filtered-empty-text");
+          if (feText) feText.textContent = msg + " Try a different date range, type, or category.";
+          filteredEmpty.hidden = false;
+        }
+        return;
+      }
+
+      if (content) content.hidden = false;
 
       var data = reports.allReports(list);
 
@@ -798,7 +824,7 @@ openConfirm: function (message, title, confirmLabel) {
       this.renderExpenseCategoryChart(data);
       this.renderIncomeCategoryChart(data);
       this.renderMonthlyTrendChart(data);
-      this.renderSpendingTrendChart(data, rangeDays);
+      this.renderSpendingTrendChart(list, rangeDays);
 
       /* insights */
       this.renderInsights(data.insights);
@@ -806,25 +832,6 @@ openConfirm: function (message, title, confirmLabel) {
       /* top lists */
       this.renderTopExpenses(data.topExpenses);
       this.renderTopIncome(data.topIncome);
-    },
-
-    renderReportsEmptyState: function (filters) {
-      var type = filters.type === "income" ? "income"
-        : filters.type === "expense" ? "expense"
-        : null;
-      var box = el("reports-content");
-      if (!box) return;
-      box.hidden = false;
-      box.innerHTML = '';
-      var panel = document.createElement("section");
-      panel.className = "panel";
-      var msg = type === "income"
-        ? "No income data available for this period."
-        : type === "expense"
-        ? "No expense data available for this period."
-        : "No transaction data available for this period.";
-      panel.innerHTML = '<p class="reports-no-data">' + esc(msg) + "</p>";
-      box.appendChild(panel);
     },
 
     renderInsights: function (insights) {
@@ -991,10 +998,10 @@ openConfirm: function (message, title, confirmLabel) {
       });
     },
 
-    renderSpendingTrendChart: function (data, rangeDays) {
+    renderSpendingTrendChart: function (list, rangeDays) {
       var canvas = el("report-spend-chart");
       var wrap = el("report-spend-wrap");
-      var trend = reports.spendingTrend(data, rangeDays);
+      var trend = reports.spendingTrend(list, rangeDays);
       el("report-spend-note").textContent = trend.type === "daily" ? "Daily spending" : "Monthly spending";
       if (!trend.labels.length) {
         this.setChartEmpty(wrap, "No expense data for this period.");
@@ -1044,11 +1051,20 @@ openConfirm: function (message, title, confirmLabel) {
       if (!canvas || typeof Chart === "undefined") return;
       var key = canvas.id;
       if (this._charts && this._charts[key]) {
-        this._charts[key].destroy();
+        try { this._charts[key].destroy(); } catch (e) { /* already destroyed */ }
         delete this._charts[key];
       }
       this._charts = this._charts || {};
       this._charts[key] = new Chart(canvas.getContext("2d"), config);
+    },
+
+    destroyAllCharts: function () {
+      var charts = this._charts || {};
+      Object.keys(charts).forEach(function (key) {
+        try { charts[key].destroy(); } catch (e) { /* already destroyed */ }
+        delete charts[key];
+      });
+      this._charts = charts;
     },
 
     chartOptions: function (currency, gridX, tooltipTitle, breakdown) {

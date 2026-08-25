@@ -262,6 +262,22 @@
     return insights;
   }
 
+  /* ---------- Central filtering (single source for every report) ----------
+     Always starts from the FULL transaction list, never from a previous
+     filtered result, so filter changes are always independent. */
+  function getFilteredReportTransactions(all, filters) {
+    filters = filters || {};
+    var range = filters.range || "all";
+    var list = all;
+
+    if (range !== "all") {
+      list = filterByDateRange(list, range, filters.start, filters.end);
+    }
+    list = filterByType(list, filters.type);
+    list = filterByCategory(list, filters.category);
+    return list;
+  }
+
   /* ---------- All-in-one convenience ---------- */
   function allReports(list) {
     return {
@@ -373,6 +389,7 @@
     monthComparison: monthComparison,
     generateInsights: generateInsights,
     allReports: allReports,
+    getFilteredReportTransactions: getFilteredReportTransactions,
     filterByDateRange: filterByDateRange,
     filterByType: filterByType,
     filterByCategory: filterByCategory,

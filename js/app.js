@@ -597,14 +597,20 @@
     // Reports filters
     document.querySelectorAll("[data-range]").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        state.reportFilters.range = btn.getAttribute("data-range") || "this-month";
-        if (state.reportFilters.range === "custom") {
+        var range = btn.getAttribute("data-range") || "this-month";
+        state.reportFilters.range = range;
+        if (range === "custom") {
           var now = new Date();
           var start = new Date(now.getFullYear(), now.getMonth(), 1);
           el("report-start").value = todayKeyOf(start);
           el("report-end").value = todayKeyOf(now);
           state.reportFilters.start = el("report-start").value;
           state.reportFilters.end = el("report-end").value;
+        } else {
+          /* Drop stale custom dates so they can never leak into the next
+             range (especially "all" / "this-month"). */
+          state.reportFilters.start = "";
+          state.reportFilters.end = "";
         }
         ui.setReportRangeChips(state.reportFilters.range);
         renderReports();

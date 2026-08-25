@@ -575,6 +575,14 @@
             <button class="btn btn-ghost" data-action="load-sample" type="button">Load sample data</button>
           </div>
         </div>
+
+        <div class="empty-state" id="reports-filtered-empty" hidden>
+          <div class="empty-illustration" aria-hidden="true">
+            <svg viewBox="0 0 64 64" width="60" height="60"><circle cx="28" cy="28" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M40 40l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </div>
+          <h2>No transactions found for this period</h2>
+          <p id="reports-filtered-empty-text">Try a different date range, type, or category.</p>
+        </div>
       </section>
     </main>
   </div>
