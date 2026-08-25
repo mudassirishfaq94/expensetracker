@@ -13,6 +13,9 @@
 
   /* Same key as Part 1 so existing local data is not orphaned. */
   var STORAGE_KEY = "et_expenses_v1";
+  /* Google Sheets connection config + pending remote actions (Part 4). */
+  var SHEETS_CONFIG_KEY = "et_sheets_config_v1";
+  var SHEETS_DELETES_KEY = "et_sheets_pending_deletes_v1";
   var DEFAULT_CURRENCY = "AED";
 
   var TYPES = ["expense", "income"];
@@ -113,6 +116,11 @@
     }
     if (next.createdAt == null) {
       next.createdAt = next.updatedAt || Date.now();
+      changed = true;
+    }
+    /* Part 4: legacy records are unsynced until Google Sheets is connected. */
+    if (next.syncStatus !== "synced" && next.syncStatus !== "failed" && next.syncStatus !== "pending") {
+      next.syncStatus = "pending";
       changed = true;
     }
     return { record: next, changed: changed };
@@ -230,6 +238,59 @@
 
     newId: uid,
 
+    /* ---- Google Sheets connection config (Part 4) ---- */
+    getSheetsConfig: function () {
+      try {
+        var raw = global.localStorage.getItem(SHEETS_CONFIG_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        console.error("[Ledger] Could not read sheets config:", err);
+        return null;
+      }
+    },
+
+    saveSheetsConfig: function (config) {
+      try {
+        global.localStorage.setItem(SHEETS_CONFIG_KEY, JSON.stringify(config || {}));
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not save sheets config:", err);
+        return false;
+      }
+    },
+
+    clearSheetsConfig: function () {
+      try {
+        global.localStorage.removeItem(SHEETS_CONFIG_KEY);
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not clear sheets config:", err);
+        return false;
+      }
+    },
+
+    /* IDs of locally-deleted transactions whose remote row still needs removal. */
+    getPendingRemoteDeletes: function () {
+      try {
+        var raw = global.localStorage.getItem(SHEETS_DELETES_KEY);
+        var arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch (err) {
+        console.error("[Ledger] Could not read pending deletes:", err);
+        return [];
+      }
+    },
+
+    savePendingRemoteDeletes: function (ids) {
+      try {
+        global.localStorage.setItem(SHEETS_DELETES_KEY, JSON.stringify(Array.isArray(ids) ? ids : []));
+        return true;
+      } catch (err) {
+        console.error("[Ledger] Could not save pending deletes:", err);
+        return false;
+      }
+    },
+
     /**
      * Sample income + expenses for first-time exploration.
      * Dates are local (not UTC) so dashboard month/day stats line up.
@@ -273,7 +334,8 @@
           date: iso(s.daysAgo),
           notes: s.note,
           createdAt: created,
-          updatedAt: created
+          updatedAt: created,
+          syncStatus: "pending"
         };
       });
     },

@@ -11,6 +11,7 @@
   var ET = (global.ET = global.ET || {});
   var expenses = ET.expenses;
   var storage = ET.storage;
+  var sheets = ET.sheets;
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function el(id) { return document.getElementById(id); }
@@ -46,6 +47,26 @@
     return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
   }
 
+  function formatRelativeTime(ts) {
+    if (!ts) return "Never";
+    var d = new Date(ts);
+    var now = new Date();
+    var sameDay = d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    var hrs = d.getHours();
+    var mins = String(d.getMinutes()).padStart(2, "0");
+    var ampm = hrs >= 12 ? "PM" : "AM";
+    var h12 = ((hrs + 11) % 12) + 1;
+    var time = h12 + ":" + mins + " " + ampm;
+    if (sameDay) return "Today at " + time;
+    var y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    if (d.getFullYear() === y.getFullYear() && d.getMonth() === y.getMonth() && d.getDate() === y.getDate()) {
+      return "Yesterday at " + time;
+    }
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return d.getDate() + " " + months[d.getMonth()] + (d.getFullYear() !== now.getFullYear() ? " " + d.getFullYear() : "") + ", " + time;
+  }
+
   function relativeDay(dateStr) {
     var today = expenses._util.todayKey();
     if (dateStr === today) return "Today";
@@ -73,6 +94,31 @@
       return '<span class="type-badge income"><span class="type-sign income" aria-hidden="true">+</span> Income</span>';
     }
     return '<span class="type-badge expense"><span class="type-sign expense" aria-hidden="true">−</span> Expense</span>';
+  }
+
+  function syncBadge(record) {
+    var st = record.syncStatus === "synced" ? "synced"
+      : record.syncStatus === "failed" ? "failed"
+      : "pending";
+    if (st === "synced") {
+      return (
+        '<span class="sync-badge is-synced" title="Synced to Google Sheets">' +
+          '<svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          "Synced</span>"
+      );
+    }
+    if (st === "failed") {
+      return (
+        '<button type="button" class="sync-badge is-failed" data-retry-sync="' + esc(record.id) + '" title="Failed to sync. Click to retry.">' +
+          '<svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><path d="M12 7v5M12 16.5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+          "Failed</button>"
+      );
+    }
+    return (
+      '<span class="sync-badge is-pending" title="Not synced to Google Sheets yet">' +
+        '<svg viewBox="0 0 24 24" width="11" height="11" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
+        "Pending</span>"
+    );
   }
 
   function recordType(record) {
@@ -123,6 +169,7 @@
     esc: esc,
     formatCurrency: formatCurrency,
     formatDate: formatDate,
+    formatRelativeTime: formatRelativeTime,
 
     populateFormCategories: function (type, keepValue) {
       var formSel = el("field-category");
@@ -501,19 +548,25 @@
       });
     },
 
-    openConfirm: function (message) {
-      var overlay = el("confirm-overlay");
-      if (message) el("confirm-text").textContent = message;
-      overlay.hidden = false;
-      void overlay.offsetWidth;
-      overlay.classList.add("is-shown");
-      setTimeout(function () { el("btn-confirm-delete").focus(); }, 60);
-    },
-    closeConfirm: function () {
-      var overlay = el("confirm-overlay");
-      overlay.classList.remove("is-shown");
-      setTimeout(function () { overlay.hidden = true; }, 200);
-    },
+openConfirm: function (message, title, confirmLabel) {
+    var overlay = el("confirm-overlay");
+    if (message) el("confirm-text").textContent = message;
+    if (title) el("confirm-title").textContent = title;
+    if (confirmLabel) el("btn-confirm-delete").textContent = confirmLabel;
+    overlay.hidden = false;
+    void overlay.offsetWidth;
+    overlay.classList.add("is-shown");
+    setTimeout(function () { el("btn-confirm-delete").focus(); }, 60);
+  },
+  closeConfirm: function () {
+    var overlay = el("confirm-overlay");
+    overlay.classList.remove("is-shown");
+    setTimeout(function () {
+      overlay.hidden = true;
+      el("confirm-title").textContent = "Delete this transaction?";
+      el("btn-confirm-delete").textContent = "Delete";
+    }, 200);
+  },
     isConfirmOpen: function () {
       return !el("confirm-overlay").hidden;
     },
@@ -547,15 +600,16 @@
 
     /* -------------------- view switching -------------------- */
     setView: function (view, navKey) {
-      var isDash = view === "dashboard";
-      el("view-dashboard").hidden = !isDash;
-      el("view-expenses").hidden = isDash;
+      el("view-dashboard").hidden = view !== "dashboard";
+      el("view-expenses").hidden = view !== "transactions";
+      el("view-sheets").hidden = view !== "sheets";
 
       var titles = {
         dashboard: { title: "Dashboard", eyebrow: "Overview" },
         transactions: { title: "Transactions", eyebrow: "All activity" },
         income: { title: "Income", eyebrow: "Incoming money" },
-        expenses: { title: "Expenses", eyebrow: "Outgoing money" }
+        expenses: { title: "Expenses", eyebrow: "Outgoing money" },
+        sheets: { title: "Google Sheets", eyebrow: "Cloud backup & sync" }
       };
       var key = navKey || view;
       var meta = titles[key] || titles.transactions;
@@ -566,7 +620,96 @@
       items.forEach(function (btn) {
         btn.classList.toggle("is-active", btn.getAttribute("data-view") === key);
       });
-    }
+    },
+
+    /* -------------------- Google Sheets page -------------------- */
+    renderSheetsPage: function () {
+      var cfg = sheets.getConfig();
+      var urlOk = sheets.hasValidUrl();
+      var connected = sheets.isConnected();
+
+      var urlInput = el("sheets-url");
+      if (urlInput && urlInput.value === "" && cfg.webAppUrl) {
+        urlInput.value = cfg.webAppUrl || "";
+        el("sheets-spreadsheet").value = cfg.spreadsheetName || "";
+        el("sheets-sheet").value = cfg.sheetName || "Transactions";
+      }
+      var codePre = el("apps-script-code");
+      if (codePre && !codePre.textContent) codePre.textContent = sheets.APP_SCRIPT_CODE;
+
+      var dot = el("sheets-status-dot");
+      var title = el("sheets-status-title");
+      var sub = el("sheets-status-sub");
+      var disconnectBtn = el("btn-disconnect");
+
+      if (connected) {
+        dot.className = "status-dot is-ok";
+        title.textContent = "Connected";
+        sub.textContent = "Transactions sync automatically to your spreadsheet.";
+        if (disconnectBtn) disconnectBtn.hidden = false;
+      } else if (urlOk && cfg.lastError) {
+        dot.className = "status-dot is-fail";
+        title.textContent = "Sync Failed";
+        sub.textContent = cfg.lastError || "Last attempt to reach Google Sheets failed.";
+        if (disconnectBtn) disconnectBtn.hidden = false;
+      } else {
+        dot.className = "status-dot";
+        title.textContent = "Not Connected";
+        sub.textContent = urlOk
+          ? "Press \u201CTest Connection\u201D to verify the Web App URL."
+          : "Connect a Google Spreadsheet to back up your transactions.";
+        if (disconnectBtn) disconnectBtn.hidden = true;
+      }
+
+      var lastSync = el("sheets-last-sync");
+      if (lastSync) lastSync.textContent = formatRelativeTime(cfg.lastSyncedAt);
+      var ssName = el("sheets-spreadsheet-name");
+      if (ssName) ssName.textContent = urlOk && cfg.spreadsheetName ? cfg.spreadsheetName : "\u2014";
+
+      var syncBtns = [el("btn-sync-all"), el("btn-sync-existing")];
+      syncBtns.forEach(function (b) {
+        if (b) b.disabled = !urlOk;
+      });
+    },
+
+    setSheetsStatus: function (mode) {
+      var dot = el("sheets-status-dot");
+      var title = el("sheets-status-title");
+      var sub = el("sheets-status-sub");
+      if (!dot) return;
+      if (mode === "syncing") {
+        dot.className = "status-dot is-busy";
+        title.textContent = "Syncing";
+        sub.textContent = "Sending transactions to Google Sheets\u2026";
+      } else if (mode === "testing") {
+        dot.className = "status-dot is-busy";
+        title.textContent = "Testing Connection";
+        sub.textContent = "Contacting the Google Apps Script Web App\u2026";
+      }
+    },
+
+    showSheetsError: function (message) {
+      var errBox = el("sheets-error");
+      if (!errBox) return;
+      errBox.textContent = message;
+      errBox.hidden = false;
+    },
+
+    hideSheetsError: function () {
+      var errBox = el("sheets-error");
+      if (errBox) {
+        errBox.hidden = true;
+        errBox.textContent = "";
+      }
+    },
+
+    showSheetsResult: function (message, isError) {
+      var box = el("sheets-result");
+      if (!box) return;
+      box.textContent = message;
+      box.classList.toggle("is-error", !!isError);
+      box.hidden = false;
+    },
   };
 
   function actionButtons(id) {
@@ -588,26 +731,27 @@
       var rel = relativeDay(e.date);
       var notes = e.notes ? '<div class="cell-notes">' + esc(e.notes) + "</div>" : "";
       var amtClass = type === "income" ? "is-income" : "is-expense";
-      return (
-        "<tr>" +
-          "<td>" + typeBadge(type) + "</td>" +
-          '<td class="cell-date">' + formatDate(e.date) +
-            (rel ? '<span class="date-rel">' + rel + "</span>" : "") + "</td>" +
-          "<td><div class=\"cell-title\">" + esc(e.title) + "</div>" + notes + "</td>" +
-          "<td>" + badge(e.category) + "</td>" +
-          '<td class="cell-vendor">' + (e.vendor ? esc(e.vendor) : '<span style="color:var(--muted)">—</span>') + "</td>" +
-          '<td class="col-amt cell-amt ' + amtClass + '">' + signedCurrency(e.amount, type) + "</td>" +
-          '<td class="col-act">' + actionButtons(e.id) + "</td>" +
-        "</tr>"
-      );
-    }).join("");
+    return (
+      "<tr>" +
+        "<td>" + typeBadge(type) + "</td>" +
+        '<td class="cell-date">' + formatDate(e.date) +
+          (rel ? '<span class="date-rel">' + rel + "</span>" : "") + "</td>" +
+        "<td><div class=\"cell-title\">" + esc(e.title) + "</div>" + notes + "</td>" +
+        "<td>" + badge(e.category) + "</td>" +
+        '<td class="cell-vendor">' + (e.vendor ? esc(e.vendor) : '<span style="color:var(--muted)">—</span>') + "</td>" +
+        '<td class="col-amt cell-amt ' + amtClass + '">' + signedCurrency(e.amount, type) + "</td>" +
+        '<td class="col-sync">' + syncBadge(e) + "</td>" +
+        '<td class="col-act">' + actionButtons(e.id) + "</td>" +
+      "</tr>"
+    );
+  }).join("");
 
     return (
       '<div class="table-wrap only-desktop">' +
         '<table class="exp-table">' +
           "<thead><tr>" +
             "<th>Type</th><th>Date</th><th>Title</th><th>Category</th><th>Store / source</th>" +
-            '<th class="col-amt">Amount</th><th class="col-act">Actions</th>' +
+            '<th class="col-amt">Amount</th><th class="col-sync">Sync</th><th class="col-act">Actions</th>' +
           "</tr></thead>" +
           "<tbody>" + body + "</tbody>" +
         "</table>" +
@@ -633,6 +777,7 @@
           notes +
           '<div class="exp-card-foot">' +
             '<span class="exp-card-date">' + formatDate(e.date) + (rel ? " · " + rel : "") + "</span>" +
+            syncBadge(e) +
             actionButtons(e.id) +
           "</div>" +
         "</article>"

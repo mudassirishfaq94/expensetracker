@@ -32,7 +32,11 @@
     state.filters.category = catValue;
     ui.setTypeFilterChips(state.filters.type);
 
-    ui.renderDashboard(all);
+    if (state.view === "sheets") {
+      ui.renderSheetsPage();
+    } else {
+      ui.renderDashboard(all);
+    }
 
     var filtered = expenses.filter(all, state.filters);
     ui.renderList(filtered, all.length);
@@ -49,12 +53,21 @@
 
   function navKeyForFilters() {
     if (state.view === "dashboard") return "dashboard";
+    if (state.view === "sheets") return "sheets";
     if (state.filters.type === "income") return "income";
     if (state.filters.type === "expense") return "expenses";
     return "transactions";
   }
 
   function goToView(view) {
+    if (view === "sheets") {
+      state.view = "sheets";
+      state.navKey = "sheets";
+      ui.setView("sheets", "sheets");
+      ui.renderSheetsPage();
+      closeSidebar();
+      return;
+    }
     if (view === "income") {
       state.view = "transactions";
       state.navKey = "income";
@@ -109,21 +122,35 @@
 
     var id = el("field-id").value;
     if (id) {
-      expenses.updateTransaction(id, payload);
+      var updated = expenses.updateTransaction(id, payload);
       ui.closeDrawer();
       refresh();
       ui.toast("Transaction updated");
+      attemptSync(updated);
     } else {
-      expenses.addTransaction(payload);
+      var created = expenses.addTransaction(payload);
       ui.closeDrawer();
       refresh();
       ui.toast(payload.type === "income" ? "Income added" : "Expense added");
+      attemptSync(created);
       var nlInput = el("nl-input");
       if (nlInput && nlInput.value) nlInput.value = "";
     }
   }
 
   function handleListClick(e) {
+    var retryBtn = e.target.closest("[data-retry-sync]");
+    if (retryBtn) {
+      var rid = retryBtn.getAttribute("data-retry-sync");
+      var rec = expenses.get(rid);
+      if (rec) {
+        ET.sheets.syncTransaction(rec).then(function (r) {
+          refresh();
+          ui.toast(r.success ? "Synced to Google Sheets." : "Sync failed — try again later.", r.success ? "success" : "error");
+        });
+      }
+      return;
+    }
     var editBtn = e.target.closest("[data-edit]");
     if (editBtn) {
       var editId = editBtn.getAttribute("data-edit");
@@ -142,16 +169,36 @@
     }
   }
 
+  function confirmCurrentAction() {
+    if (state.pendingAction) {
+      var fn = state.pendingAction;
+      state.pendingAction = null;
+      ui.closeConfirm();
+      fn();
+      return;
+    }
+    confirmDelete();
+  }
+
   function confirmDelete() {
     if (!state.pendingDeleteId) return;
-    var ok = expenses.removeTransaction(state.pendingDeleteId);
+    var id = state.pendingDeleteId;
     state.pendingDeleteId = null;
+    var ok = expenses.removeTransaction(id);
     ui.closeConfirm();
-    if (ok) {
-      refresh();
-      ui.toast("Transaction deleted", "info");
-    } else {
+    if (!ok) {
       ui.toast("Could not delete transaction", "error");
+      return;
+    }
+    refresh();
+    ui.toast("Transaction deleted", "info");
+    if (ET.sheets.isConnected()) {
+      ET.sheets.deleteRemoteTransaction(id).then(function (r) {
+        if (!r.success && !r.skipped) {
+          ET.sheets.queueRemoteDelete(id);
+          ui.toast("Could not remove it from Google Sheets. It will be retried.", "error");
+        }
+      });
     }
   }
 
@@ -162,7 +209,10 @@
     var filtered = expenses.filter(all, state.filters);
     ui.renderList(filtered, all.length);
     state.navKey = navKeyForFilters();
-    ui.setView(state.view === "dashboard" ? "dashboard" : "transactions", state.navKey);
+    var view = state.view === "dashboard" ? "dashboard"
+      : state.view === "sheets" ? "sheets"
+      : "transactions";
+    ui.setView(view, state.navKey);
   }
 
   function clearFilters() {
@@ -200,6 +250,178 @@
     expenses.loadSamples();
     refresh({ animateDashboard: true });
     ui.toast("Sample data loaded");
+  }
+
+  /* --------------------- Google Sheets sync helpers --------------------- */
+
+  function attemptSync(record) {
+    if (!record) return;
+    if (!ET.sheets.isConnected()) return;
+    ET.sheets.syncTransaction(record).then(function (r) {
+      refresh();
+      if (!r.success && !r.skipped) {
+        ui.toast("Saved locally, but could not sync to Google Sheets.", "error");
+      }
+    });
+  }
+
+  function readConfigFromForm() {
+    return {
+      webAppUrl: (el("sheets-url").value || "").trim(),
+      spreadsheetName: (el("sheets-spreadsheet").value || "").trim(),
+      sheetName: (el("sheets-sheet").value || "Transactions").trim()
+    };
+  }
+
+  function testConnection() {
+    var cfg = readConfigFromForm();
+    if (!cfg.webAppUrl) {
+      ui.showSheetsError("Please paste your Web App URL.");
+      return;
+    }
+    if (!ET.sheets.validateUrl(cfg.webAppUrl)) {
+      ui.showSheetsError("Invalid Web App URL.");
+      return;
+    }
+    ui.hideSheetsError();
+    ui.setSheetsStatus("testing");
+    ET.sheets.testConnection(cfg).then(function (r) {
+      if (r.success) {
+        cfg.lastTestOk = true;
+        cfg.lastError = null;
+        ET.sheets.saveConfig(cfg);
+        ui.toast("Google Sheets connected successfully.", "success");
+        ui.renderSheetsPage();
+        refresh();
+      } else {
+        ui.showSheetsError(r.message || "Could not connect.");
+        ui.renderSheetsPage();
+      }
+    });
+  }
+
+  function saveConfigAndConnect(e) {
+    e.preventDefault();
+    var cfg = readConfigFromForm();
+    if (!cfg.webAppUrl) {
+      ui.showSheetsError("Please paste your Web App URL.");
+      return;
+    }
+    if (!ET.sheets.validateUrl(cfg.webAppUrl)) {
+      ui.showSheetsError("Invalid Web App URL.");
+      return;
+    }
+    ui.hideSheetsError();
+    ET.sheets.saveConfig(cfg);
+    ui.setSheetsStatus("testing");
+    ET.sheets.testConnection(cfg).then(function (r) {
+      if (r.success) {
+        cfg.lastTestOk = true;
+        cfg.lastError = null;
+        ET.sheets.saveConfig(cfg);
+        ui.toast("Google Sheets connected successfully.", "success");
+      } else {
+        cfg.lastError = r.message;
+        cfg.lastTestOk = false;
+        ET.sheets.saveConfig(cfg);
+        ui.toast("Connection failed — check the Web App URL and try again.", "error");
+      }
+      ui.renderSheetsPage();
+      refresh();
+    });
+  }
+
+  function disconnect() {
+    state.pendingAction = function () {
+      ET.sheets.clearConfig();
+      ui.renderSheetsPage();
+      refresh();
+      ui.toast("Google Sheets disconnected. Your local data is safe.", "info");
+    };
+    ui.openConfirm(
+      "Disconnect Google Sheets?\n\nYour transactions and spreadsheet will NOT be deleted.",
+      "Disconnect Google Sheets?",
+      "Disconnect"
+    );
+  }
+
+  function syncAll() {
+    if (!ET.sheets.hasValidUrl()) {
+      ui.toast("Connect Google Sheets first.", "info");
+      return;
+    }
+    ui.hideSheetsError();
+    ui.setSheetsStatus("syncing");
+    ui.showSheetsResult("Synchronizing\u2026", false);
+    ET.sheets.syncAll().then(function (summary) {
+      refresh();
+      ui.renderSheetsPage();
+      var msg = "Synchronization Complete\n" + summary.synced + " synced, " + summary.failed + " failed" +
+        (summary.skipped ? ", " + summary.skipped + " skipped." : ".");
+      ui.showSheetsResult(msg, summary.failed > 0);
+      ui.toast(msg.replace(/\n/g, " "), summary.failed > 0 ? "error" : "success");
+    });
+  }
+
+  function confirmSyncExisting() {
+    if (!ET.sheets.hasValidUrl()) {
+      ui.toast("Connect Google Sheets first.", "info");
+      return;
+    }
+    var all = expenses.all();
+    var count = all.filter(function (r) {
+      return r.syncStatus !== "synced";
+    }).length;
+    if (count === 0) {
+      ui.toast("All transactions are already synced.", "info");
+      return;
+    }
+    state.pendingAction = function () {
+      ui.setSheetsStatus("syncing");
+      ui.showSheetsResult("Synchronizing " + count + " transaction(s)\u2026", false);
+      ET.sheets.syncExisting().then(function (summary) {
+        refresh();
+        ui.renderSheetsPage();
+        var msg = "Synchronization Complete\n" + summary.synced + " synced, " + summary.failed + " failed" +
+          (summary.skipped ? ", " + summary.skipped + " skipped." : ".");
+        ui.showSheetsResult(msg, summary.failed > 0);
+        ui.toast(msg.replace(/\n/g, " "), summary.failed > 0 ? "error" : "success");
+      });
+    };
+    ui.openConfirm(
+      "You have " + count + " local transaction(s) not yet synced.\n\nWould you like to sync them to Google Sheets?",
+      "Sync existing transactions?",
+      "Sync"
+    );
+  }
+
+  function copyScript() {
+    var code = ET.sheets.APP_SCRIPT_CODE;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(function () {
+        ui.toast("Apps Script code copied to clipboard.", "success");
+      }, function () {
+        fallbackCopy(code);
+      });
+    } else {
+      fallbackCopy(code);
+    }
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      ui.toast("Apps Script code copied to clipboard.", "success");
+    } catch (e) {
+      ui.toast("Could not copy — select the code manually.", "error");
+    }
+    document.body.removeChild(ta);
   }
 
   /* --------------------- smart natural-language entry --------------------- */
@@ -308,14 +530,16 @@
 
     el("expense-list-container").addEventListener("click", handleListClick);
 
-    el("btn-confirm-delete").addEventListener("click", confirmDelete);
+    el("btn-confirm-delete").addEventListener("click", confirmCurrentAction);
     el("btn-cancel-delete").addEventListener("click", function () {
       state.pendingDeleteId = null;
+      state.pendingAction = null;
       ui.closeConfirm();
     });
     el("confirm-overlay").addEventListener("click", function (e) {
       if (e.target === el("confirm-overlay")) {
         state.pendingDeleteId = null;
+        state.pendingAction = null;
         ui.closeConfirm();
       }
     });
@@ -341,12 +565,20 @@
     el("btn-clear-filters").addEventListener("click", clearFilters);
     el("btn-clear-filters-2").addEventListener("click", clearFilters);
 
+    // Google Sheets page
+    el("btn-test-connection").addEventListener("click", testConnection);
+    el("sheets-config-form").addEventListener("submit", saveConfigAndConnect);
+    el("btn-disconnect").addEventListener("click", disconnect);
+    el("btn-sync-all").addEventListener("click", syncAll);
+    el("btn-sync-existing").addEventListener("click", confirmSyncExisting);
+    el("btn-copy-script").addEventListener("click", copyScript);
+
     el("btn-menu").addEventListener("click", openSidebar);
     el("sidebar-backdrop").addEventListener("click", closeSidebar);
 
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
-      if (ui.isConfirmOpen()) { state.pendingDeleteId = null; ui.closeConfirm(); }
+      if (ui.isConfirmOpen()) { state.pendingDeleteId = null; state.pendingAction = null; ui.closeConfirm(); }
       else if (ui.isDrawerOpen()) { ui.closeDrawer(); }
       else if (el("sidebar").classList.contains("is-open")) { closeSidebar(); }
     });

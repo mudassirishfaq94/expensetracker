@@ -70,7 +70,9 @@
       date: clean.date,
       notes: clean.notes,
       createdAt: createdAt,
-      updatedAt: updatedAt
+      updatedAt: updatedAt,
+      /* Part 4: Google Sheets sync state. Fresh records need syncing. */
+      syncStatus: "pending"
     };
   }
 

@@ -8,10 +8,40 @@ accounts, no external services — your data never leaves the browser.
 > **Part 1** — expense-only core foundation (dashboard, CRUD, filters).
 > **Part 2** — income + expense transaction system with a financial summary.
 > **Part 3** — natural-language transaction input (smart entry).
-> The next phase (Part 4) will add Google Sheets integration and automatic
-> synchronization; reports and settings are planned later.
+> **Part 4** — Google Sheets integration and automatic transaction sync.
+> The next phase (Part 5) will add reports, analytics, and monthly summaries.
 
 ## Features
+
+### Google Sheets sync (Part 4)
+
+- **Dedicated Google Sheets page** — connection status (Not Connected /
+  Connected / Syncing / Sync Failed), last-sync time, spreadsheet name, and a
+  beginner-friendly 7-step setup guide.
+- **Config-based integration** — paste your Google Apps Script **Web App URL**
+  plus spreadsheet/sheet names. The config is saved locally; no Google
+  credentials, API keys, or tokens ever touch the frontend.
+- **Built-in Google Apps Script** — copy the provided `Code.gs` (one click),
+  paste it into your spreadsheet's Apps Script editor, deploy as a Web App
+  (run as Me, access Anyone), and paste the URL back into Ledger.
+- **Test Connection** button with friendly errors (invalid URL, unreachable
+  script, timeout, etc.).
+- **Automatic sync** — transactions saved manually or via natural-language
+  entry sync to Google Sheets immediately after saving locally. LocalStorage
+  stays the instant source; the app never waits for Google.
+- **Duplicate protection** — every row is keyed by the unique transaction ID;
+  the Apps Script updates an existing row instead of appending a new one, so
+  refreshes and retries never create duplicates.
+- **Per-transaction sync status** — a small badge in the transaction list shows
+  **Synced**, **Pending**, or **Failed** (click a failed badge to retry).
+- **Sync All** and **Sync Existing Transactions** buttons, plus a retry queue
+  for failed deletions — nothing is silently lost when the internet drops.
+- **Offline-safe** — if Google Sheets is unreachable the transaction stays in
+  LocalStorage, is marked Pending/Failed, and can be retried later.
+- **Edit & delete sync** — edits update the matching Google Sheets row; deletes
+  remove the matching row (with retry if the remote delete fails).
+- **Disconnect** removes only the saved connection config — all local
+  transactions and your spreadsheet are untouched.
 
 ### Smart entry (natural language)
 
@@ -98,23 +128,25 @@ python -m http.server 8000
 ## Project structure
 
 ```
-/index.html        Markup: sidebar, dashboard (with smart input), transactions view, drawer, modal
+/index.html        Markup: sidebar, dashboard (with smart input), transactions + Google Sheets views, drawer, modal
 /css/style.css     Full design system (tokens, components, responsive)
-/js/storage.js     localStorage layer, migration, id generation, sample data
+/js/storage.js     localStorage layer, migration, id generation, sample data, sheets config
 /js/transactions.js  Domain logic: CRUD, filtering, sorting, statistics
 /js/expenses.js    Compatibility shim (aliases ET.expenses to ET.transactions)
 /js/parser.js      Rule-based natural-language parser (smart entry)
-/js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts)
+/js/googleSheets.js  Google Sheets sync layer (config, test, send/update/delete, retries)
+/js/ui.js          All DOM rendering (dashboard, list, drawer, modal, toasts, sheets page)
 /js/app.js         Bootstrap, routing, validation, event wiring
 ```
 
 The JavaScript is intentionally modular. Each file attaches to a shared global
 `window.ET` namespace and they load in dependency order
-(`storage → transactions → expenses → parser → ui → app`). Classic scripts (not
-ES modules) are used so the app runs correctly even when opened directly from
-the file system. All writes go through the single `addTransaction()` function
-in `transactions.js` — the manual form and the natural-language parser both use
-it, and a future AI parser can reuse the same central save path.
+(`storage → transactions → expenses → parser → googleSheets → ui → app`).
+Classic scripts (not ES modules) are used so the app runs correctly even when
+opened directly from the file system. All writes go through the single
+`addTransaction()` function in `transactions.js` — the manual form and the
+natural-language parser both use it, and the Google Sheets layer watches the
+same records for syncing.
 
 ## Data model
 
@@ -130,11 +162,19 @@ it, and a future AI parser can reuse the same central save path.
   date: "2026-08-25",
   notes: "",
   createdAt: 1690000000000,
-  updatedAt: 1690000000000
+  updatedAt: 1690000000000,
+  syncStatus: "pending" | "synced" | "failed"
 }
 ```
 
-IDs are unique, amounts are stored as numbers, and dates use `YYYY-MM-DD`.
+IDs are unique, amounts are stored as numbers, dates use `YYYY-MM-DD`, and
+`syncStatus` tracks Google Sheets backup state (legacy records are treated as
+`pending`).
+
+The Google Sheets connection config (Web App URL, spreadsheet/sheet names,
+last sync time) is stored separately in `localStorage` under
+`et_sheets_config_v1`. Only non-secret configuration is ever stored — never
+passwords, tokens, or API keys.
 
 ## Categories
 
@@ -146,8 +186,8 @@ Refund · Other Income
 
 ## Roadmap (not built yet)
 
-Part 4: Google Sheets integration & automatic synchronization · Reports &
-charts · Settings · Authentication / cloud sync.
+Part 5: Reports & analytics · monthly summaries · category breakdowns · better
+Google Sheets reporting · Settings · Authentication / cloud sync.
 
 ---
 
