@@ -238,13 +238,15 @@
     var expCat = expenseCategoryBreakdown(list);
     if (expCat.rows.length > 0) {
       var topCat = expCat.rows[0];
-      insights.push("Your highest spending category is " + topCat.category + " — AED " + topCat.amount.toLocaleString("en-AE", { minimumFractionDigits: 2 }) + ".");
+      var catCurrency = ET.settings ? ET.settings.getCurrency() : "AED";
+      insights.push("Your highest spending category is " + topCat.category + " — " + catCurrency + " " + topCat.amount.toLocaleString("en-US", { minimumFractionDigits: 2 }) + ".");
     }
 
     /* Largest expense single transaction */
     var topExp = topExpenses(list, 1);
     if (topExp.length > 0) {
-      insights.push("Your largest expense was " + topExp[0].title + " for AED " + (Number(topExp[0].amount) || 0).toLocaleString("en-AE", { minimumFractionDigits: 2 }) + ".");
+      var expCurrency = ET.settings ? ET.settings.getCurrency() : "AED";
+      insights.push("Your largest expense was " + topExp[0].title + " for " + expCurrency + " " + (Number(topExp[0].amount) || 0).toLocaleString("en-US", { minimumFractionDigits: 2 }) + ".");
     }
 
     /* Month-to-month expense change */

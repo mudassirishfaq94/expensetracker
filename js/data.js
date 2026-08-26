@@ -149,13 +149,14 @@
   function exportFinancialSummaryCSV(list) {
     var data = ET.reports ? ET.reports.allReports(list) : null;
     if (!data) return "No report data available.";
+    var currency = ET.settings ? ET.settings.getCurrency() : "AED";
     var lines = [];
     lines.push(csvEscape("Financial Summary"));
     lines.push("Label,Value");
     lines.push(csvEscape("Period") + "," + csvEscape("Custom range"));
-    lines.push(csvEscape("Total Income") + "," + csvEscape("AED " + data.overview.totalIncome.toFixed(2)));
-    lines.push(csvEscape("Total Expenses") + "," + csvEscape("AED " + data.overview.totalExpenses.toFixed(2)));
-    lines.push(csvEscape("Net Balance") + "," + csvEscape("AED " + data.overview.balance.toFixed(2)));
+    lines.push(csvEscape("Total Income") + "," + csvEscape(currency + " " + data.overview.totalIncome.toFixed(2)));
+    lines.push(csvEscape("Total Expenses") + "," + csvEscape(currency + " " + data.overview.totalExpenses.toFixed(2)));
+    lines.push(csvEscape("Net Balance") + "," + csvEscape(currency + " " + data.overview.balance.toFixed(2)));
     if (data.overview.savingsRate != null) lines.push(csvEscape("Savings Rate") + "," + csvEscape(data.overview.savingsRate.toFixed(1) + "%"));
     lines.push("");
     lines.push(csvEscape("Top Expense Categories"));
@@ -269,12 +270,13 @@
     return { valid: valid, invalid: invalid, duplicates: duplicates, total: candidates.length };
   }
 
-  function importValidRows(preview) {
+  async function importValidRows(preview) {
     var imported = 0;
-    (preview.valid || []).forEach(function (c) {
-      var rec = ET.transactions ? ET.transactions.addTransaction(c.data) : null;
+    for (var i = 0; i < (preview.valid || []).length; i++) {
+      var c = preview.valid[i];
+      var rec = ET.transactions ? await ET.transactions.addTransaction(c.data) : null;
       if (rec) imported++;
-    });
+    }
     return { imported: imported, skippedDuplicates: (preview.duplicates || []).length, skippedInvalid: (preview.invalid || []).length };
   }
 

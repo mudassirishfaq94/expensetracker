@@ -551,7 +551,7 @@
       type: type || "expense",
       title: title,
       amount: amountRes.amount,
-      currency: DEFAULT_CURRENCY,
+      currency: (ET.settings ? ET.settings.getCurrency() : DEFAULT_CURRENCY),
       category: category,
       vendor: vendor || "",
       date: dateRes.key || ymd(new Date()),

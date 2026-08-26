@@ -25,6 +25,10 @@
     <span class="mobile-brand">
       <span class="brand-mark" aria-hidden="true">L</span> Ledger
     </span>
+    <button id="btn-notif-mobile" class="icon-btn notif-btn" type="button" aria-label="Notifications" aria-expanded="false" title="Notifications" hidden>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="notif-badge" id="notif-badge-mobile" hidden>0</span>
+    </button>
     <button id="btn-add-mobile" class="icon-btn accent" aria-label="Add transaction">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
@@ -112,10 +116,34 @@
           <p class="topbar-eyebrow" id="view-eyebrow">Overview</p>
           <h1 class="topbar-title" id="view-title">Dashboard</h1>
         </div>
-        <button class="btn btn-primary" id="btn-add-expense" type="button">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-          Add transaction
-        </button>
+        <div class="topbar-actions">
+          <div class="notif-wrap" id="notif-wrap" hidden>
+            <button class="icon-btn notif-btn" id="btn-notif" type="button" aria-label="Notifications" aria-expanded="false" title="Notifications">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="notif-badge" id="notif-badge" hidden>0</span>
+            </button>
+
+            <div class="notif-panel" id="notif-panel" hidden aria-label="Notifications panel">
+              <div class="notif-panel-head">
+                <h3 class="notif-panel-title">Notifications</h3>
+                <button class="link-btn" id="btn-mark-all-read" type="button">Mark all as read</button>
+              </div>
+              <div class="notif-list" id="notif-list"></div>
+              <div class="notif-empty" id="notif-empty" hidden>
+                <p class="notif-empty-title">You're all caught up.</p>
+                <p class="notif-empty-sub">No new notifications.</p>
+              </div>
+              <div class="notif-panel-foot">
+                <button class="link-btn" id="btn-clear-read" type="button">Clear read</button>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="btn-add-expense" type="button">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+            Add transaction
+          </button>
+        </div>
       </header>
 
       <!-- ===== DASHBOARD VIEW ===== -->
@@ -167,7 +195,7 @@
                 <p class="hero-eyebrow">Total balance</p>
                 <span class="hero-chip" id="hero-count-chip">0 transactions</span>
               </div>
-              <p class="hero-amount" id="stat-balance" data-amount="0">AED 0.00</p>
+              <p class="hero-amount" id="stat-balance" data-amount="0">--</p>
               <p class="hero-sub">
                 Income minus expenses · all time
               </p>
@@ -181,7 +209,7 @@
                 </span>
                 <p class="stat-label">Total income</p>
               </div>
-              <p class="stat-value is-income" id="stat-income">+ AED 0.00</p>
+              <p class="stat-value is-income" id="stat-income">+ --</p>
               <p class="stat-foot" id="stat-income-foot">All time</p>
             </article>
 
@@ -192,7 +220,7 @@
                 </span>
                 <p class="stat-label">Total expenses</p>
               </div>
-              <p class="stat-value is-expense" id="stat-expenses">− AED 0.00</p>
+              <p class="stat-value is-expense" id="stat-expenses">− --</p>
               <p class="stat-foot" id="stat-expenses-foot">All time</p>
             </article>
 
@@ -203,7 +231,7 @@
                 </span>
                 <p class="stat-label">This month's balance</p>
               </div>
-              <p class="stat-value" id="stat-month-balance">AED 0.00</p>
+              <p class="stat-value" id="stat-month-balance">--</p>
               <p class="stat-foot" id="stat-month-foot">This month</p>
             </article>
 
@@ -214,7 +242,7 @@
                 </span>
                 <p class="stat-label">Today's spending</p>
               </div>
-              <p class="stat-value" id="stat-today">AED 0.00</p>
+              <p class="stat-value" id="stat-today">--</p>
               <p class="stat-foot" id="stat-today-foot">No expenses today</p>
             </article>
 
@@ -240,30 +268,30 @@
                 <h3 class="summary-heading">Income vs expenses</h3>
                 <div class="summary-row">
                   <span class="summary-label"><span class="type-sign income" aria-hidden="true">+</span> Total income</span>
-                  <span class="summary-value is-income" id="sum-income">AED 0.00</span>
+                  <span class="summary-value is-income" id="sum-income">--</span>
                 </div>
                 <div class="summary-row">
                   <span class="summary-label"><span class="type-sign expense" aria-hidden="true">−</span> Total expenses</span>
-                  <span class="summary-value is-expense" id="sum-expenses">AED 0.00</span>
+                  <span class="summary-value is-expense" id="sum-expenses">--</span>
                 </div>
                 <div class="summary-row is-total">
                   <span class="summary-label">Net balance</span>
-                  <span class="summary-value" id="sum-balance">AED 0.00</span>
+                  <span class="summary-value" id="sum-balance">--</span>
                 </div>
               </div>
               <div class="summary-block">
                 <h3 class="summary-heading">Current month summary</h3>
                 <div class="summary-row">
                   <span class="summary-label"><span class="type-sign income" aria-hidden="true">+</span> Income this month</span>
-                  <span class="summary-value is-income" id="sum-month-income">AED 0.00</span>
+                  <span class="summary-value is-income" id="sum-month-income">--</span>
                 </div>
                 <div class="summary-row">
                   <span class="summary-label"><span class="type-sign expense" aria-hidden="true">−</span> Expenses this month</span>
-                  <span class="summary-value is-expense" id="sum-month-expenses">AED 0.00</span>
+                  <span class="summary-value is-expense" id="sum-month-expenses">--</span>
                 </div>
                 <div class="summary-row is-total">
                   <span class="summary-label">Remaining balance this month</span>
-                  <span class="summary-value" id="sum-month-balance">AED 0.00</span>
+                  <span class="summary-value" id="sum-month-balance">--</span>
                 </div>
               </div>
             </div>
@@ -493,7 +521,7 @@
                 </span>
                 <p class="stat-label">Total income</p>
               </div>
-              <p class="stat-value is-income" id="report-total-income">AED 0.00</p>
+              <p class="stat-value is-income" id="report-total-income">--</p>
               <p class="stat-foot" id="report-income-foot">0 entries</p>
             </article>
             <article class="stat-card">
@@ -503,7 +531,7 @@
                 </span>
                 <p class="stat-label">Total expenses</p>
               </div>
-              <p class="stat-value is-expense" id="report-total-expenses">AED 0.00</p>
+              <p class="stat-value is-expense" id="report-total-expenses">--</p>
               <p class="stat-foot" id="report-expense-foot">0 entries</p>
             </article>
             <article class="stat-card">
@@ -513,7 +541,7 @@
                 </span>
                 <p class="stat-label">Net balance</p>
               </div>
-              <p class="stat-value" id="report-balance">AED 0.00</p>
+              <p class="stat-value" id="report-balance">--</p>
               <p class="stat-foot" id="report-balance-foot">Income minus expenses</p>
             </article>
             <article class="stat-card">
@@ -641,7 +669,7 @@
               </div>
               <div class="budget-edit-row">
                 <div class="field">
-                  <label for="budget-monthly-input">Monthly spending limit (AED)</label>
+                  <label for="budget-monthly-input" id="budget-monthly-label">Monthly spending limit (AED)</label>
                   <input type="number" id="budget-monthly-input" min="0.01" step="0.01" placeholder="e.g. 5000" />
                 </div>
                 <button class="btn btn-primary" id="btn-save-monthly-budget" type="button">Save budget</button>
@@ -661,7 +689,7 @@
                   <select id="budget-cat-select"></select>
                 </div>
                 <div class="field">
-                  <label for="budget-cat-amount">Limit (AED)</label>
+                  <label for="budget-cat-amount" id="budget-cat-amount-label">Limit (AED)</label>
                   <input type="number" id="budget-cat-amount" min="0.01" step="0.01" placeholder="e.g. 800" />
                 </div>
                 <button class="btn btn-primary" id="btn-add-cat-budget" type="button">Add budget</button>
@@ -686,7 +714,7 @@
                 </div>
                 <div class="field-row">
                   <div class="field">
-                    <label for="goal-target">Target (AED)</label>
+                    <label for="goal-target" id="goal-target-label">Target (AED)</label>
                     <input type="number" id="goal-target" min="0.01" step="0.01" />
                   </div>
                   <div class="field">
@@ -968,7 +996,7 @@
 
       <div class="field-row">
         <div class="field">
-          <label for="field-amount">Amount (AED) <span class="req">*</span></label>
+          <label for="field-amount"><span id="field-amount-label">Amount (AED)</span> <span class="req">*</span></label>
           <input type="number" id="field-amount" placeholder="0.00" step="0.01" min="0.01" inputmode="decimal" />
           <p class="field-error" id="err-amount" hidden></p>
         </div>
@@ -1041,7 +1069,7 @@
 
       <div class="field-row">
         <div class="field">
-          <label for="rf-amount">Amount (AED) <span class="req">*</span></label>
+          <label for="rf-amount"><span id="rf-amount-label">Amount (AED)</span> <span class="req">*</span></label>
           <input type="number" id="rf-amount" placeholder="0.00" step="0.01" min="0.01" inputmode="decimal" />
         </div>
         <div class="field">
@@ -1255,6 +1283,8 @@
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/database.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/notifications.js"></script>
   <script src="js/migration.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>

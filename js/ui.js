@@ -33,13 +33,17 @@
       .replace(/'/g, "&#39;");
   }
 
-  function formatCurrency(amount) {
-    var n = Number(amount) || 0;
-    var s = n.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return storage.DEFAULT_CURRENCY + " " + s;
+  function formatCurrency(amount, currency) {
+    if (currency && ET.settings.formatCurrencyFor) {
+      return ET.settings.formatCurrencyFor(amount, currency);
+    }
+    return ET.settings.formatCurrency(amount);
   }
 
-  function signedCurrency(amount, type) {
+  function signedCurrency(amount, type, currency) {
+    if (currency && ET.settings.signedCurrencyFor) {
+      return ET.settings.signedCurrencyFor(amount, type, currency);
+    }
     var abs = Math.abs(Number(amount) || 0);
     if (type === "income") return "+ " + formatCurrency(abs);
     return "− " + formatCurrency(abs);
@@ -213,6 +217,27 @@
     formatCurrency: formatCurrency,
     formatDate: formatDate,
     formatRelativeTime: formatRelativeTime,
+
+    /**
+     * Update every hardcoded currency label in the UI to reflect the
+     * user's current default currency.
+     */
+    updateCurrencyLabels: function () {
+      var curr = ET.settings ? ET.settings.getCurrency() : "AED";
+      var map = {
+        "field-amount-label": "Amount (" + curr + ")",
+        "rf-amount-label": "Amount (" + curr + ")",
+        "goal-target-label": "Target (" + curr + ")",
+        "budget-monthly-label": "Monthly spending limit (" + curr + ")",
+        "budget-cat-amount-label": "Limit (" + curr + ")"
+      };
+      Object.keys(map).forEach(function (id) {
+        var node = el(id);
+        if (node) node.textContent = map[id];
+      });
+      var contribInput = document.querySelector('[data-contrib-amount]');
+      if (contribInput) contribInput.placeholder = "Amount (" + curr + ")";
+    },
 
     populateFormCategories: function (type, keepValue) {
       var formSel = el("field-category");
@@ -421,7 +446,7 @@
               '<span class="recent-meta">' + esc(meta) + "</span>" +
             "</span>" +
             '<span class="recent-amt ' + (type === "income" ? "is-income" : "is-expense") + '">' +
-              signedCurrency(e.amount, type) +
+              signedCurrency(e.amount, type, e.currency) +
             "</span>" +
           "</li>"
         );
@@ -905,7 +930,7 @@ openConfirm: function (message, title, confirmLabel) {
               '<span class="top-title">' + esc(r.title) + "</span>" +
               '<span class="top-meta">' + esc(r.category) + " · " + esc(formatDate(r.date)) + "</span>" +
             "</span>" +
-            '<span class="top-amt is-expense">' + formatCurrency(Number(r.amount) || 0) + "</span>" +
+            '<span class="top-amt is-expense">' + formatCurrency(Number(r.amount) || 0, r.currency) + "</span>" +
           "</li>"
         );
       }).join("");
@@ -927,7 +952,7 @@ openConfirm: function (message, title, confirmLabel) {
               '<span class="top-title">' + esc(r.title) + "</span>" +
               '<span class="top-meta">' + esc(r.category) + " · " + esc(formatDate(r.date)) + "</span>" +
             "</span>" +
-            '<span class="top-amt is-income">' + formatCurrency(Number(r.amount) || 0) + "</span>" +
+            '<span class="top-amt is-income">' + formatCurrency(Number(r.amount) || 0, r.currency) + "</span>" +
           "</li>"
         );
       }).join("");
@@ -961,7 +986,7 @@ openConfirm: function (message, title, confirmLabel) {
             maxBarThickness: 90
           }]
         },
-        options: this.chartOptions("AED", true)
+        options: this.chartOptions(undefined, true)
       });
     },
 
@@ -986,7 +1011,7 @@ openConfirm: function (message, title, confirmLabel) {
             borderColor: "#FFFFFF"
           }]
         },
-        options: this.chartOptions("AED", false, "Category", bd.rows)
+        options: this.chartOptions(undefined, false, "Category", bd.rows)
       });
     },
 
@@ -1011,7 +1036,7 @@ openConfirm: function (message, title, confirmLabel) {
             borderColor: "#FFFFFF"
           }]
         },
-        options: this.chartOptions("AED", false, "Category", bd.rows)
+        options: this.chartOptions(undefined, false, "Category", bd.rows)
       });
     },
 
@@ -1034,7 +1059,7 @@ openConfirm: function (message, title, confirmLabel) {
             { label: "Net", data: trend.map(function (m) { return m.balance; }), borderColor: "#C9A227", backgroundColor: "transparent", borderWidth: 2, borderDash: [5, 4], tension: 0.3, pointRadius: 3 }
           ]
         },
-        options: this.chartOptions("AED", true)
+        options: this.chartOptions(undefined, true)
       });
     },
 
@@ -1063,7 +1088,7 @@ openConfirm: function (message, title, confirmLabel) {
             pointRadius: 2
           }]
         },
-        options: this.chartOptions("AED", true)
+        options: this.chartOptions(undefined, true)
       });
     },
 
@@ -1108,6 +1133,7 @@ openConfirm: function (message, title, confirmLabel) {
     },
 
     chartOptions: function (currency, gridX, tooltipTitle, breakdown) {
+      currency = currency || ET.settings.getCurrency();
       return {
         responsive: true,
         maintainAspectRatio: false,
@@ -1117,7 +1143,7 @@ openConfirm: function (message, title, confirmLabel) {
             callbacks: {
               label: function (ctx) {
                 var val = Number(ctx.parsed.y != null ? ctx.parsed.y : ctx.parsed);
-                var label = currency + " " + val.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                var label = currency + " " + val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 if (tooltipTitle && breakdown) {
                   var row = breakdown[ctx.dataIndex];
                   if (row) label += " (" + row.pct + "%)";
@@ -1184,7 +1210,8 @@ openConfirm: function (message, title, confirmLabel) {
       html += '<div class="budget-bar"><span class="budget-bar-fill ' + levelClass + '" style="width:' + pct + '%"></span></div>';
       html += '<div class="goal-card-foot"><span>' + formatCurrency(prog.remaining) + ' remaining' + deadline + '</span></div>';
       if (!compact) {
-        html += '<div class="goal-contribute"><input type="number" class="goal-contrib-input" data-contrib-amount="' + esc(goal.id) + '" min="0.01" step="0.01" placeholder="Amount (AED)" />';
+        var contribCurrency = ET.settings ? ET.settings.getCurrency() : "AED";
+        html += '<div class="goal-contribute"><input type="number" class="goal-contrib-input" data-contrib-amount="' + esc(goal.id) + '" min="0.01" step="0.01" placeholder="Amount (' + contribCurrency + ')" />';
         html += '<button type="button" class="btn btn-primary btn-sm" data-contribute="' + esc(goal.id) + '">Add</button></div>';
         html += '<button type="button" class="btn btn-ghost btn-sm" data-delete-goal="' + esc(goal.id) + '">Delete goal</button>';
       }
@@ -1304,7 +1331,7 @@ openConfirm: function (message, title, confirmLabel) {
         [def.category, def.vendor, def.isSubscription ? "" : null].filter(Boolean).join(" &middot; ") +
         "</div>";
       html += '<div class="recurring-card-amount ' + (def.type === "income" ? "is-income" : "is-expense") + '">' +
-        (def.type === "income" ? "+ " : "− ") + formatCurrency(def.amount) + "</div>";
+        (def.type === "income" ? "+ " : "− ") + formatCurrency(def.amount, def.currency) + "</div>";
       html += '<div class="recurring-card-due">Next due: ' + dueDate +
         (def.nextDueDate ? ' <span class="due-rel">' + this.dueRelativeLabel(daysUntil(def.nextDueDate)) + "</span>" : "") +
         "</div>";
@@ -1360,7 +1387,7 @@ openConfirm: function (message, title, confirmLabel) {
               '<div class="upcoming-main"><span class="upcoming-title">' + esc(r.title) + "</span>" +
               '<span class="upcoming-date">' + formatDate(r.dueDate) + " · " + this.dueRelativeLabel(r.daysToDue) + "</span></div>" +
               '<span class="upcoming-amt ' + (r.type === "income" ? "is-income" : "is-expense") + '">' +
-                (r.type === "income" ? "+ " : "− ") + formatCurrency(r.amount) + "</span>" +
+                (r.type === "income" ? "+ " : "− ") + formatCurrency(r.amount, r.currency) + "</span>" +
             "</div>"
           );
         }, this).join("");
@@ -1384,12 +1411,12 @@ openConfirm: function (message, title, confirmLabel) {
         return;
       }
       list.innerHTML = defs.map(function (d) {
-        var eq = d.frequency !== "monthly" ? ' <span class="due-rel">≈ ' + formatCurrency(recurring.monthlyEquivalent(d.amount, d.frequency)) + "/mo</span>" : "";
+        var eq = d.frequency !== "monthly" ? ' <span class="due-rel">≈ ' + formatCurrency(recurring.monthlyEquivalent(d.amount, d.frequency), d.currency) + "/mo</span>" : "";
         var html = '<div class="recurring-card">';
         html += '<div class="recurring-card-head"><span class="recurring-card-title sub-title">' + esc(d.title) + "</span>" +
           (d.status === "paused" ? '<span class="status-badge is-paused">Paused</span>' : '<span class="status-badge is-active">Active</span>') + "</div>";
         html += '<div class="recurring-card-meta">' + esc(d.category) + " &middot; " + this.frequencyLabel(d.frequency) + "</div>";
-        html += '<div class="recurring-card-amount is-expense">− ' + formatCurrency(d.amount) + eq + "</div>";
+        html += '<div class="recurring-card-amount is-expense">− ' + formatCurrency(d.amount, d.currency) + eq + "</div>";
         html += '<div class="recurring-card-due">Next payment: ' + (d.nextDueDate ? formatDate(d.nextDueDate) : "—") +
           (d.nextDueDate ? ' <span class="due-rel">' + this.dueRelativeLabel(daysUntil(d.nextDueDate)) + "</span>" : "") + "</div>";
         html += '<div class="recurring-card-actions">' +
@@ -1418,7 +1445,7 @@ openConfirm: function (message, title, confirmLabel) {
             '<span class="recent-main"><span class="recent-title">' + esc(r.title) + "</span>" +
             '<span class="recent-meta">' + this.dueRelativeLabel(r.daysToDue) + "</span></span>" +
             '<span class="recent-amt ' + (r.type === "income" ? "is-income" : "is-expense") + '">' +
-              (r.type === "income" ? "+ " : "− ") + formatCurrency(r.amount) + "</span>" +
+              (r.type === "income" ? "+ " : "− ") + formatCurrency(r.amount, r.currency) + "</span>" +
           "</li>"
         );
       }, this).join("");
@@ -1795,14 +1822,16 @@ openConfirm: function (message, title, confirmLabel) {
       el("settings-name").textContent = (user && user.user_metadata && user.user_metadata.full_name) || (user && user.email) || "—";
       el("settings-email").textContent = (user && user.email) || "—";
       var sel = el("settings-currency");
-      var prefs = globalLocalPref("et_currency_pref") || "AED";
-      sel.value = prefs;
+      var currentCurrency = ET.settings ? ET.settings.getCurrency() : "AED";
+      sel.value = currentCurrency;
       if (database.isCloudMode()) {
         database.fetchUserSettings().then(function (settings) {
-          if (settings && settings.currency && el("settings-currency").value === "AED") {
-            el("settings-currency").value = settings.currency;
-            globalLocalSave("et_currency_pref", settings.currency);
+          if (settings && settings.currency) {
+            sel.value = settings.currency;
+            if (ET.settings) ET.settings.state.currency = settings.currency;
           }
+        }).catch(function (err) {
+          console.error("[Ledger] Could not load user settings:", err);
         });
       }
     },
@@ -1835,7 +1864,7 @@ openConfirm: function (message, title, confirmLabel) {
         "<td><div class=\"cell-title\">" + esc(e.title) + "</div>" + notes + "</td>" +
         "<td>" + badge(e.category) + "</td>" +
         '<td class="cell-vendor">' + (e.vendor ? esc(e.vendor) : '<span style="color:var(--muted)">—</span>') + "</td>" +
-        '<td class="col-amt cell-amt ' + amtClass + '">' + signedCurrency(e.amount, type) + "</td>" +
+        '<td class="col-amt cell-amt ' + amtClass + '">' + signedCurrency(e.amount, type, e.currency) + "</td>" +
         '<td class="col-sync">' + syncBadge(e) + "</td>" +
         '<td class="col-act">' + actionButtons(e.id) + "</td>" +
       "</tr>"
@@ -1868,7 +1897,7 @@ openConfirm: function (message, title, confirmLabel) {
               '<div class="exp-card-meta">' + typeBadge(type) + badge(e.category) +
                 (e.vendor ? "<span>" + esc(e.vendor) + "</span>" : "") + "</div>" +
             "</div>" +
-            '<div class="exp-card-amt ' + amtClass + '">' + signedCurrency(e.amount, type) + "</div>" +
+            '<div class="exp-card-amt ' + amtClass + '">' + signedCurrency(e.amount, type, e.currency) + "</div>" +
           "</div>" +
           notes +
           '<div class="exp-card-foot">' +

@@ -491,7 +491,7 @@
           type: s.type,
           title: s.title,
           amount: s.amount,
-          currency: DEFAULT_CURRENCY,
+          currency: (ET.settings && ET.settings.getCurrency()) || DEFAULT_CURRENCY,
           category: s.category,
           vendor: s.vendor,
           date: iso(s.daysAgo),
@@ -506,7 +506,7 @@
     /** Write the sample set (replacing anything present). Explicit user action only. */
     loadSampleData: function () {
       var samples = this.buildSampleData();
-      writeRaw(samples);
+      this.replaceAllTransactions(samples);
       return samples;
     }
   };

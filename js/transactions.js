@@ -46,11 +46,12 @@
   /* ---------- normalisation ---------- */
   function normalizeInput(input) {
     input = input || {};
+    var defaultCurrency = ET.settings ? ET.settings.getCurrency() : "AED";
     return {
       type: storage.normalizeType(input.type),
       title: String(input.title == null ? "" : input.title).trim(),
       amount: roundMoney(Number(input.amount)),
-      currency: storage.DEFAULT_CURRENCY,
+      currency: String(input.currency || defaultCurrency),
       category: String(input.category == null ? "" : input.category).trim(),
       vendor: String(input.vendor == null ? "" : input.vendor).trim(),
       date: String(input.date == null ? "" : input.date).trim(),
@@ -140,8 +141,19 @@
     /**
      * Central create path. Manual form and (later) NL parsing both call this.
      * addTransaction({ type, title, amount, category, vendor, date, notes })
+     *
+     * When cloud mode is active, the transaction is first inserted into
+     * Supabase through ET.database.createTransaction() and the returned
+     * database row is added to the local working state. When cloud mode is
+     * off, it falls back to LocalStorage so the app stays usable offline.
      */
-    addTransaction: function (input) {
+    addTransaction: async function (input) {
+      if (ET.database && ET.database.isCloudMode()) {
+        var savedRow = await ET.database.createTransaction(input);
+        var local = ET.database.dbTransactionToLocal(savedRow);
+        storage.add(local);
+        return local;
+      }
       var clean = normalizeInput(input);
       var now = Date.now();
       var record = buildRecord(clean, storage.newId(), now, now);
@@ -174,7 +186,13 @@
 
     update: function (id, input) {
       var existing = storage.get(id);
-      var clean = normalizeInput(input);
+      var mergedInput = Object.assign({}, input || {});
+      /* Preserve the existing transaction's own currency — editing a title or
+         amount must never relabel a 100 AED record as 100 USD. */
+      if (!mergedInput.currency && existing && existing.currency) {
+        mergedInput.currency = existing.currency;
+      }
+      var clean = normalizeInput(mergedInput);
       var now = Date.now();
       var createdAt = existing && existing.createdAt != null ? existing.createdAt : now;
       var record = buildRecord(clean, id, createdAt, now);

@@ -37,6 +37,8 @@
     opts = opts || {};
     var all = expenses.all();
 
+    ui.updateCurrencyLabels();
+
     var monthValue = ui.populateMonthFilter(all, state.filters.month);
     state.filters.month = monthValue;
     var catValue = ui.populateFilterCategories(state.filters.type, state.filters.category);
@@ -177,7 +179,7 @@
     refresh({ animateDashboard: true });
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     var payload = {
       type: el("field-type").value,
@@ -196,20 +198,35 @@
     }
 
     var id = el("field-id").value;
-    if (id) {
-      var updated = expenses.updateTransaction(id, payload);
-      ui.closeDrawer();
-      refresh();
-      ui.toast("Transaction updated");
-      attemptSync(updated);
-    } else {
-      var created = expenses.addTransaction(payload);
-      ui.closeDrawer();
-      refresh();
-      ui.toast(payload.type === "income" ? "Income added" : "Expense added");
-      attemptSync(created);
-      var nlInput = el("nl-input");
-      if (nlInput && nlInput.value) nlInput.value = "";
+    var saveBtn = el("btn-save");
+    var originalLabel = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving\u2026";
+
+    try {
+      if (id) {
+        var updated = expenses.updateTransaction(id, payload);
+        ui.closeDrawer();
+        refresh();
+        ui.toast("Transaction updated");
+        attemptSync(updated);
+        runAlertCheck();
+      } else {
+        var created = await expenses.addTransaction(payload);
+        ui.closeDrawer();
+        refresh();
+        ui.toast(payload.type === "income" ? "Income added" : "Expense added");
+        attemptSync(created);
+        runAlertCheck();
+        var nlInput = el("nl-input");
+        if (nlInput && nlInput.value) nlInput.value = "";
+      }
+    } catch (err) {
+      console.error("[Ledger] Could not save transaction:", err);
+      ui.toast("Unable to save this transaction. Please try again.", "error");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalLabel;
     }
   }
 
@@ -267,6 +284,13 @@
     }
     refresh();
     ui.toast("Transaction deleted", "info");
+    runAlertCheck();
+    if (ET.database && ET.database.isCloudMode()) {
+      ET.database.deleteTransaction(id).catch(function (err) {
+        console.error("[Ledger] Could not delete from Supabase:", err);
+        ui.toast("Deleted locally, but could not remove it from the cloud. It may return after refresh.", "error");
+      });
+    }
     if (ET.sheets.isConnected()) {
       ET.sheets.deleteRemoteTransaction(id).then(function (r) {
         if (!r.success && !r.skipped) {
@@ -337,6 +361,7 @@
     expenses.loadSamples();
     refresh({ animateDashboard: true });
     ui.toast("Sample data loaded");
+    runAlertCheck();
   }
 
   /* --------------------- Google Sheets sync helpers --------------------- */
@@ -527,6 +552,7 @@
     ET.budgets.setMonthlyBudget(input.value);
     refresh();
     ui.toast("Monthly budget saved.");
+    runAlertCheck();
   }
 
   function addCategoryBudget() {
@@ -545,6 +571,7 @@
     amount.value = "";
     refresh();
     ui.toast("Category budget saved.");
+    runAlertCheck();
   }
 
   function handleBudgetListClick(e) {
@@ -553,6 +580,7 @@
     ET.budgets.removeCategoryBudget(removeBtn.getAttribute("data-remove-cat"));
     refresh();
     ui.toast("Category budget removed.", "info");
+    runAlertCheck();
   }
 
   function addGoal() {
@@ -573,6 +601,7 @@
     deadline.value = "";
     refresh();
     ui.toast("Goal created.");
+    runAlertCheck();
   }
 
   function handleGoalsListClick(e) {
@@ -587,6 +616,7 @@
         if (amountInput) amountInput.value = "";
         refresh();
         ui.toast("Contribution added.");
+        runAlertCheck();
       }
       return;
     }
@@ -597,6 +627,7 @@
         ET.budgets.deleteGoal(gid2);
         refresh();
         ui.toast("Goal deleted.", "info");
+        runAlertCheck();
       };
       ui.openConfirm("Delete this goal? Its contributions will be removed too.", "Delete goal?", "Delete");
     }
@@ -605,14 +636,31 @@
   /* ------------------- Recurring transactions handlers ------------------- */
   var recurringProcessing = false;
 
-  function processRecurringNow() {
+  /* Central financial alert check — never breaks the main action. */
+  function runAlertCheck() {
+    if (!ET.notifications || !ET.database.isCloudMode()) return Promise.resolve();
+    return ET.notifications.checkFinancialAlerts()
+      .then(function (created) {
+        if (created && created > 0) {
+          return ET.notifications.refresh();
+        }
+        ET.notifications.renderBadge();
+        return null;
+      })
+      .catch(function (err) {
+        console.error("[Ledger] Notification check failed:", err);
+      });
+  }
+
+  async function processRecurringNow() {
     if (recurringProcessing) return;
     recurringProcessing = true;
     var summary;
     try {
-      summary = ET.recurring.processRecurringTransactions(expenses.all());
+      summary = await ET.recurring.processRecurringTransactions(expenses.all());
     } catch (err) {
       recurringProcessing = false;
+      console.error("[Ledger] Could not process recurring transactions:", err);
       ui.toast("Could not process recurring transactions.", "error");
       return;
     }
@@ -622,7 +670,9 @@
       summary.generatedRecords.forEach(function (rec) { attemptSync(rec); });
     }
     if (summary.generated > 0) {
+      refresh();
       ui.toast(summary.generated + " recurring transaction(s) generated.", "success");
+      await runAlertCheck();
     }
     summary.warnings.forEach(function (w) { ui.toast(w, "error"); });
     return summary;
@@ -661,6 +711,7 @@
     ui.closeRecurringDrawer();
     refresh();
     ui.toast(id ? "Recurring transaction updated." : "Recurring transaction added.");
+    runAlertCheck();
   }
 
   function handleRecurringListClick(e) {
@@ -855,7 +906,7 @@
     ui.renderImportPreview(preview, candidates, el("import-file-name").textContent);
   }
 
-  function doImport() {
+  async function doImport() {
     if (!importState) return;
     var candidates;
     if (importState.type === "csv") {
@@ -866,9 +917,10 @@
     }
     var preview = ET.data.previewImport(candidates, expenses.all());
     if (!preview.valid.length) { ui.toast("No valid transactions to import.", "info"); return; }
-    var result = ET.data.importValidRows(preview);
+    var result = await ET.data.importValidRows(preview);
     refresh();
     ui.toast("Import complete: " + result.imported + " imported, " + result.skippedDuplicates + " duplicates skipped, " + result.skippedInvalid + " invalid skipped.");
+    runAlertCheck();
     /* Offer to sync to Google Sheets through the existing queue. */
     if (ET.sheets.isConnected() && result.imported > 0) {
       ui.toast("New transactions are pending sync. Use Sync All on the Google Sheets page.", "info");
@@ -934,6 +986,7 @@
       el("backup-preview").hidden = true;
       el("restore-mode").hidden = true;
       refresh();
+      runAlertCheck();
     };
     ui.openConfirm(
       isReplace
@@ -1129,11 +1182,12 @@
     // Recurring & subscriptions
     el("btn-add-recurring").addEventListener("click", function () { ui.openRecurringDrawer("add", null); });
     el("btn-check-due").addEventListener("click", function () {
-      var summary = processRecurringNow();
-      refresh();
-      if (summary) {
-        ui.toast("Checked due transactions: " + summary.generated + " generated.", summary.generated ? "success" : "info");
-      }
+      processRecurringNow().then(function (summary) {
+        refresh();
+        if (summary) {
+          ui.toast("Checked due transactions: " + summary.generated + " generated.", summary.generated ? "success" : "info");
+        }
+      });
     });
     el("recurring-form").addEventListener("submit", handleRecurringSubmit);
     el("btn-close-recurring-drawer").addEventListener("click", ui.closeRecurringDrawer);
@@ -1242,14 +1296,20 @@
     // Settings
     el("btn-save-settings").addEventListener("click", function () {
       var currency = el("settings-currency").value;
-      globalLocalSave("et_currency_pref", currency);
-      if (ET.database.isCloudMode()) {
-        ET.database.updateUserSettings({ currency: currency }).then(function () {
-          ui.toast("Preferences saved.");
-        });
-      } else {
+      if (!ET.settings) {
         ui.toast("Preferences saved.");
+        return;
       }
+      ui.updateCurrencyLabels();
+      refresh();
+      ET.settings.saveCurrency(currency).then(function () {
+        ui.toast("Currency updated successfully.");
+      }).catch(function () {
+        el("settings-currency").value = ET.settings.getCurrency();
+        ui.updateCurrencyLabels();
+        refresh();
+        ui.toast("Unable to update currency. Please try again.", "error");
+      });
     });
 
     el("btn-menu").addEventListener("click", openSidebar);
@@ -1268,6 +1328,7 @@
 
   function startLocalApp() {
     ET.database.setCloudMode(false);
+    if (ET.notifications) ET.notifications.setVisible(false);
     ui.hideAuthScreen();
     ui.hideLoading();
     ui.hideUserMenu();
@@ -1280,6 +1341,7 @@
     ui.showLoading("Loading your financial data\u2026");
     ET.database.setCloudMode(true);
     ET.database.subscribeToMutations();
+    if (ET.notifications) ET.notifications.setVisible(true);
     ET.database.ensureProfile()
       .then(function () {
         var check = ET.migration.runCheck();
@@ -1289,13 +1351,17 @@
           ui.showMigrationScreen();
           return;
         }
-        return ET.database.loadAll().then(function () {
-          ui.hideLoading();
-          ui.updateUserMenu(user);
-          ui.hideMigrationScreen();
-          ui.setView("dashboard", "dashboard");
-          processRecurringNow();
-          refresh({ animateDashboard: true });
+        return ET.settings.load().then(function () {
+          return ET.database.loadAll().then(async function () {
+            if (ET.notifications) await ET.notifications.load();
+            await processRecurringNow();
+            await runAlertCheck();
+            ui.hideLoading();
+            ui.updateUserMenu(user);
+            ui.hideMigrationScreen();
+            ui.setView("dashboard", "dashboard");
+            refresh({ animateDashboard: true });
+          });
         });
       })
       .catch(function (err) {
@@ -1317,13 +1383,15 @@
       btn.disabled = false;
       btn.textContent = "Migrate My Data";
       if (result.ok) {
-        return ET.database.loadAll().then(function () {
-          ui.hideMigrationScreen();
-          ui.updateUserMenu(ET.auth.getUser());
-          ui.setView("dashboard", "dashboard");
-          processRecurringNow();
-          refresh({ animateDashboard: true });
-          ui.toast("Your data has been successfully migrated to cloud storage. Your local backup remains available temporarily.");
+        return ET.settings.load().then(function () {
+          return ET.database.loadAll().then(function () {
+            ui.hideMigrationScreen();
+            ui.updateUserMenu(ET.auth.getUser());
+            ui.setView("dashboard", "dashboard");
+            processRecurringNow();
+            refresh({ animateDashboard: true });
+            ui.toast("Your data has been successfully migrated to cloud storage. Your local backup remains available temporarily.");
+          });
         });
       }
       errBox.textContent = result.error || "Migration could not be completed. Your existing local data is still safe on this device.";
@@ -1333,19 +1401,24 @@
 
   function skipMigration() {
     ET.migration.saveMeta({ status: "skipped", skippedAt: Date.now() });
-    ET.database.loadAll().then(function () {
-      ui.hideMigrationScreen();
-      ui.updateUserMenu(ET.auth.getUser());
-      ui.setView("dashboard", "dashboard");
-      processRecurringNow();
-      refresh({ animateDashboard: true });
-      ui.toast("Skipped for now. You can migrate from Data & Backup later.", "info");
+    ET.settings.load().then(function () {
+      return ET.database.loadAll().then(async function () {
+        if (ET.notifications) await ET.notifications.load();
+        await runAlertCheck();
+        ui.hideMigrationScreen();
+        ui.updateUserMenu(ET.auth.getUser());
+        ui.setView("dashboard", "dashboard");
+        processRecurringNow();
+        refresh({ animateDashboard: true });
+        ui.toast("Skipped for now. You can migrate from Data & Backup later.", "info");
+      });
     });
   }
 
   async function handleLogout() {
     await ET.auth.signOut();
     ET.database.setCloudMode(false);
+    if (ET.notifications) ET.notifications.setVisible(false);
     ui.hideUserMenu();
     ui.hideMigrationScreen();
     ui.hideCloudError();
@@ -1438,6 +1511,7 @@
   function init() {
     ui.populateCategorySelects();
     wire();
+    if (ET.notifications) ET.notifications.init();
 
     ET.supabase.init();
     if (!ET.supabase.isConfigured()) {
@@ -1449,6 +1523,7 @@
     ET.auth.onAuthStateChange(function (event) {
       if (event === "SIGNED_OUT") {
         ET.database.setCloudMode(false);
+        if (ET.notifications) ET.notifications.setVisible(false);
         ui.hideUserMenu();
         ui.showAuthScreen();
       }

@@ -64,13 +64,17 @@
 
   /* --------------------------- definitions ------------------------------ */
 
+  function defaultCurrency() {
+    return ET.settings ? ET.settings.getCurrency() : "AED";
+  }
+
   function normalizeDef(def) {
     return {
       id: String(def.id || ""),
       type: storage.normalizeType(def.type),
       title: String(def.title || ""),
       amount: Number(def.amount) || 0,
-      currency: String(def.currency || storage.DEFAULT_CURRENCY),
+      currency: String(def.currency || defaultCurrency()),
       category: String(def.category || ""),
       vendor: String(def.vendor || ""),
       notes: String(def.notes || ""),
@@ -179,7 +183,7 @@
       type: storage.normalizeType(input.type),
       title: String(input.title).trim(),
       amount: roundMoney(Number(input.amount)),
-      currency: storage.DEFAULT_CURRENCY,
+      currency: String(input.currency || defaultCurrency()),
       category: String(input.category || ""),
       vendor: String(input.vendor || ""),
       notes: String(input.notes || ""),
@@ -272,17 +276,18 @@
    * recurringId+date and by advancing nextDueDate). Catch-up is capped at
    * MAX_CATCH_UP periods per item per run.
    */
-  function processRecurringTransactions(transactions) {
+  async function processRecurringTransactions(transactions) {
     transactions = transactions || (ET.transactions ? ET.transactions.all() : []);
     var defs = getRecurring();
     var today = todayStart();
     var summary = { generated: 0, skipped: 0, generatedRecords: [], warnings: [] };
     var anyChange = false;
 
-    defs.forEach(function (def) {
-      if (def.status !== "active") return;
+    for (var di = 0; di < defs.length; di++) {
+      var def = defs[di];
+      if (def.status !== "active") continue;
       var due = parseDate(def.nextDueDate);
-      if (!due || due > today) return;
+      if (!due || due > today) continue;
 
       var count = periodsBetween(due, today, def.frequency);
       var truncated = count > MAX_CATCH_UP;
@@ -298,12 +303,13 @@
       var nextDate = toYMD(cursor);
 
       var generated = 0;
-      dueDates.forEach(function (dueDate) {
+      for (var ddi = 0; ddi < dueDates.length; ddi++) {
+        var dueDate = dueDates[ddi];
         var exists = transactions.some(function (t) {
           return t.recurringId === def.id && t.date === dueDate;
         });
-        if (exists) { summary.skipped++; return; }
-        var record = ET.transactions.addTransaction({
+        if (exists) { summary.skipped++; continue; }
+        var record = await ET.transactions.addTransaction({
           type: def.type,
           title: def.title,
           amount: def.amount,
@@ -317,7 +323,7 @@
         summary.generated++;
         generated++;
         summary.generatedRecords.push(record);
-      });
+      }
 
       if (dueDates.length > 0) {
         def.lastGeneratedDate = dueDates[dueDates.length - 1];
@@ -332,7 +338,7 @@
           "Reached the catch-up limit (12) for \u201C" + def.title + "\u201D. Some older periods were skipped \u2014 check your history."
         );
       }
-    });
+    }
 
     if (anyChange) saveRecurring(defs);
     return summary;
@@ -344,7 +350,7 @@
     var defs = getRecurring();
     var today = todayStart();
     var rows = [];
-    defs.forEach(function (def) {
+defs.forEach(function (def) {
       if (def.status !== "active") return;
       var due = parseDate(def.nextDueDate);
       if (!due) return;
@@ -353,7 +359,7 @@
         type: def.type,
         title: def.title,
         amount: def.amount,
-        currency: def.currency,
+        currency: def.currency || defaultCurrency(),
         category: def.category,
         dueDate: def.nextDueDate,
         daysToDue: Math.round((due - today) / DAY_MS),
