@@ -120,6 +120,15 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 
 .nav { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.nav-group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #7E9387;
+  padding: 16px 12px 4px;
+}
+.nav-group-label:first-child { padding-top: 8px; }
 .nav-item {
   display: flex; align-items: center; gap: 12px;
   width: 100%;
@@ -203,6 +212,60 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 
 .view { max-width: 1180px; margin: 0 auto; }
 .view[hidden] { display: none; }
+
+/* -------------------- Dashboard greeting & onboarding ------------------- */
+.dash-greeting { margin-bottom: 18px; }
+.dash-greeting-line {
+  font-family: "Fraunces", serif;
+  font-size: clamp(22px, 3.4vw, 30px);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+}
+.dash-greeting-sub { margin-top: 4px; font-size: 14px; color: var(--muted); }
+.dash-greeting.is-welcome .dash-greeting-line {
+  font-size: clamp(20px, 3vw, 26px);
+}
+.dash-empty-card {
+  text-align: center;
+  padding: 20px 12px;
+}
+.dash-empty-card.is-compact {
+  padding: 14px 12px;
+}
+.dash-empty-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.dash-empty-text {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.dash-empty-card .btn {
+  margin-top: 12px;
+}
+.dash-empty-card.is-compact .dash-empty-title {
+  font-size: 13.5px;
+}
+
+/* Progressive onboarding hint */
+.onboard-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  background: var(--success-soft);
+  border: 1px solid #B5D6C4;
+  border-radius: var(--r-md);
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.onboard-hint-text { flex: 1; min-width: 0; font-weight: 500; }
+.onboard-hint .link-btn { font-size: 13px; }
 
 /* ------------------------- Smart natural-language input ----------------- */
 .smart-panel {
@@ -906,14 +969,18 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 /* --------------------------- Auth & cloud UI ---------------------------- */
 .auth-screen {
   position: fixed; inset: 0; z-index: 200;
-  display: grid; place-items: center; padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(24px, 6vw, 72px);
+  padding: 40px 24px;
   background:
     radial-gradient(90% 120% at 15% 0%, rgba(201,162,39,0.12) 0%, rgba(201,162,39,0) 45%),
     linear-gradient(160deg, #F4F1E8 0%, #EDE7D9 100%);
   overflow-y: auto;
 }
 .auth-card {
-  width: 100%; max-width: 400px;
+  width: 100%; max-width: 400px; flex-shrink: 0;
   background: var(--paper); border: 1px solid var(--line);
   border-radius: var(--r-xl); box-shadow: var(--shadow-lg);
   padding: 28px;
@@ -923,7 +990,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .auth-logo { ... } /* legacy — kept for compatibility, not used */
 .auth-logo-img {
   display: block;
-  max-width: 240px;
+  max-width: 200px;
   height: auto;
   margin: 0 auto 5px;
   border-radius: 8px;
@@ -937,6 +1004,113 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .auth-links-row { display: flex; gap: 10px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
 .btn-block { width: 100%; }
 .field-error.is-success { color: var(--success); background: var(--success-soft); border-color: #B5D6C4; }
+
+/* Auth hero (homepage marketing) */
+.auth-hero {
+  max-width: 520px;
+  width: 100%;
+  min-width: 0;
+}
+.auth-hero-brand { margin-bottom: 22px; }
+.auth-hero-logo {
+  max-width: 210px;
+  height: auto;
+  display: block;
+}
+.auth-hero-title {
+  font-family: "Fraunces", serif;
+  font-size: clamp(28px, 4.2vw, 42px);
+  font-weight: 700;
+  line-height: 1.12;
+  color: var(--ink);
+  letter-spacing: -0.4px;
+}
+.auth-hero-sub {
+  margin-top: 16px;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 460px;
+}
+.auth-hero-demo {
+  margin-top: 26px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  padding: 16px 18px;
+}
+.auth-demo-input {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  background: var(--paper-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 11px 13px;
+  overflow-wrap: break-word;
+}
+.auth-demo-arrow {
+  text-align: center;
+  color: var(--gold);
+  font-size: 16px;
+  padding: 8px 0;
+}
+.auth-demo-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.auth-demo-tag {
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid #B5D6C4;
+}
+.auth-demo-tag:first-child { background: var(--danger-soft); color: var(--danger); border-color: #E8CFC8; }
+.auth-hero-props {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.auth-prop {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.auth-prop-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--forest);
+  color: var(--gold-soft);
+}
+.auth-prop strong { display: block; color: var(--ink); font-size: 14px; margin-bottom: 2px; }
+.auth-prop > div { min-width: 0; }
+
+@media (max-width: 899px) {
+  .auth-screen {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 28px;
+    padding: 32px 20px 48px;
+  }
+  .auth-hero { max-width: 480px; margin: 0 auto; }
+  .auth-hero-title { font-size: clamp(26px, 7vw, 34px); }
+  .auth-hero-brand { margin-bottom: 16px; }
+  .auth-hero-demo { margin-top: 18px; }
+  .auth-card { max-width: 480px; margin: 0 auto; }
+}
 
 .spinner {
   width: 34px; height: 34px; margin: 16px auto;
@@ -1149,6 +1323,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .empty-illustration { color: #C3BCA9; margin-bottom: 18px; }
 .empty-state h2 { font-family: "Fraunces", serif; font-weight: 600; font-size: 21px; color: var(--ink); }
 .empty-state p { color: var(--muted); max-width: 400px; margin: 8px auto 0; }
+.empty-hint { font-size: 13px; max-width: 380px; }
 .empty-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 22px; }
 
 /* ------------------------------- Drawer -------------------------------- */

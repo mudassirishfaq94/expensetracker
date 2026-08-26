@@ -72,6 +72,7 @@
     ui.renderDashboardBudget(all);
     ui.renderDashboardGoals();
     ui.renderDashboardUpcoming();
+    renderOnboardingHint(all);
 
     var filtered = expenses.filter(all, state.filters);
     ui.renderList(filtered, all.length);
@@ -84,6 +85,55 @@
         content.classList.add("animate-in");
       }
     }
+  }
+
+  function popGreetingText() {
+    var hour = new Date().getHours();
+    return hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  }
+
+  function renderOnboardingHint(all) {
+    var hintEl = el("onboard-hint");
+    var textEl = el("onboard-hint-text");
+    var actionBtn = el("onboard-hint-action");
+    var dismissBtn = el("onboard-hint-dismiss");
+    if (!hintEl || !textEl || !actionBtn || !dismissBtn) return;
+
+    var count = all.length;
+    var cfg = ET.budgets ? ET.budgets.getBudgetsConfig() : null;
+    var hasBudget = cfg && (cfg.monthly > 0);
+    var goals = ET.budgets ? ET.budgets.getGoals() : [];
+    var hasGoal = goals.length > 0;
+
+    var hint = null;
+    if (count < 1) {
+      hintEl.hidden = true;
+      return;
+    }
+    if (!hasBudget && !lq("onboard_budget")) {
+      hint = { text: "Great start! Set a monthly budget to keep your spending on track.", action: "Set a budget", view: "budgets", key: "onboard_budget" };
+    } else if (!hasGoal && count >= 5 && !lq("onboard_goal")) {
+      hint = { text: "You're on a roll! Create a savings goal and track your progress.", action: "Create a goal", view: "budgets", key: "onboard_goal" };
+    } else if (count >= 3 && !lq("onboard_reports")) {
+      hint = { text: "See where your money is going — explore your spending reports.", action: "View reports", view: "reports", key: "onboard_reports" };
+    }
+
+    if (hint) {
+      hintEl.hidden = false;
+      textEl.textContent = hint.text;
+      actionBtn.textContent = hint.action;
+      actionBtn._dataView = hint.view;
+      dismissBtn._dismissKey = hint.key;
+    } else {
+      hintEl.hidden = true;
+    }
+  }
+
+  function lq(key) {
+    try { return localStorage.getItem("et_onboard_" + key) === "1"; } catch (e) { return false; }
+  }
+  function sq(key) {
+    try { localStorage.setItem("et_onboard_" + key, "1"); } catch (e) { /* ignore */ }
   }
 
   function navKeyForFilters() {
@@ -388,7 +438,7 @@
   function loadSamples() {
     expenses.loadSamples();
     refresh({ animateDashboard: true });
-    ui.toast("Sample data loaded");
+    ui.toast("Sample data loaded — explore the dashboard!");
     runAlertCheck();
   }
 
@@ -1382,6 +1432,19 @@
     // Logout (sidebar user area + settings)
     el("btn-logout").addEventListener("click", handleLogout);
     el("btn-settings-logout").addEventListener("click", handleLogout);
+
+    // Onboarding hint
+    el("onboard-hint-action").addEventListener("click", function () {
+      var view = this._dataView || "budgets";
+      var key = this._dismissKey || "";
+      if (key) sq(key);
+      goToView(view);
+    });
+    el("onboard-hint-dismiss").addEventListener("click", function () {
+      var key = this._dismissKey || "";
+      if (key) sq(key);
+      el("onboard-hint").hidden = true;
+    });
 
     // Settings
     el("btn-save-settings").addEventListener("click", function () {

@@ -407,8 +407,27 @@
     },
 
     /* -------------------- DASHBOARD -------------------- */
+    renderGreeting: function (hasData) {
+      var wrap = el("dash-greeting");
+      var line = el("dash-greeting-line");
+      var sub = el("dash-greeting-sub");
+      if (!wrap || !line) return;
+      if (!hasData) {
+        wrap.hidden = true;
+        return;
+      }
+      wrap.hidden = false;
+      var hour = new Date().getHours();
+      var period = hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+      var months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      var now = new Date();
+      line.textContent = period + " \uD83D\uDC4B";
+      sub.textContent = "Here's what's happening with your money this " + months[now.getMonth()].toLowerCase() + ".";
+    },
+
     renderDashboard: function (list) {
       var hasData = list.length > 0;
+      this.renderGreeting(hasData);
       el("dashboard-empty").hidden = hasData;
       el("dashboard-content").hidden = !hasData;
       if (!hasData) return;
@@ -1298,7 +1317,13 @@ openConfirm: function (message, title, confirmLabel) {
       var st = budgets.budgetStatus(transactions);
       var cfg = budgets.getBudgetsConfig();
       if (!st.hasMonthlyBudget && !st.hasCategoryBudgets) {
-        panel.style.display = "none";
+        panel.style.display = "";
+        body.innerHTML =
+          '<div class="dash-empty-card">' +
+            '<p class="dash-empty-title">Keep your spending on track</p>' +
+            '<p class="dash-empty-text">Set a monthly budget and LedgerExpense will show how you\'re doing.</p>' +
+            '<button class="btn btn-ghost btn-sm" data-view-jump="budgets" type="button">Create Your First Budget</button>' +
+          "</div>";
         return;
       }
       panel.style.display = "";
@@ -1316,7 +1341,16 @@ openConfirm: function (message, title, confirmLabel) {
       var body = el("dash-goals-body");
       if (!panel || !body) return;
       var goals = budgets.getGoals();
-      if (!goals.length) { panel.style.display = "none"; return; }
+      if (!goals.length) {
+        panel.style.display = "";
+        body.innerHTML =
+          '<div class="dash-empty-card">' +
+            '<p class="dash-empty-title">Saving for something?</p>' +
+            '<p class="dash-empty-text">Create a goal and track your progress over time.</p>' +
+            '<button class="btn btn-ghost btn-sm" data-view-jump="budgets" type="button">Create a Goal</button>' +
+          "</div>";
+        return;
+      }
       panel.style.display = "";
       body.innerHTML = goals.map(function (g) {
         return this.goalCardHTML(g, budgets.computeGoalProgress(g), true);
@@ -1508,7 +1542,15 @@ openConfirm: function (message, title, confirmLabel) {
       var body = el("dash-upcoming-body");
       if (!panel || !body) return;
       var rows = recurring.upcomingPayments();
-      if (!rows.length) { panel.style.display = "none"; return; }
+      if (!rows.length) {
+        panel.style.display = "";
+        body.innerHTML =
+          '<div class="dash-empty-card is-compact">' +
+            '<p class="dash-empty-title">No upcoming payments</p>' +
+            '<p class="dash-empty-text">Scheduled bills and subscriptions will appear here.</p>' +
+          "</div>";
+        return;
+      }
       panel.style.display = "";
       body.innerHTML = rows.slice(0, 4).map(function (r) {
         return (

@@ -55,6 +55,7 @@
       </div>
 
       <nav class="nav" aria-label="Sections">
+        <div class="nav-group-label">Main</div>
         <button class="nav-item is-active" data-view="dashboard" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6v-9h-6v9zm0-16v5h6V4h-6z" fill="currentColor"/></svg>
           <span>Dashboard</span>
@@ -71,6 +72,8 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M7 14l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>Expenses</span>
         </button>
+
+        <div class="nav-group-label">Planning</div>
         <button class="nav-item" data-view="budgets" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zm-9 9l9 5 9-5M3 16l9 5 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
           <span>Budgets &amp; Goals</span>
@@ -79,17 +82,19 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M12 18v4M4 12h4M16 12h4M5.64 5.64l2.83 2.83M15.54 15.54l2.83 2.83M5.64 18.36l2.83-2.83M15.54 8.46l2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>Recurring</span>
         </button>
+
+        <div class="nav-group-label">Data &amp; Tools</div>
         <button class="nav-item" data-view="data" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 10h16M9 10v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
           <span>Data &amp; Backup</span>
         </button>
-
-        <div class="nav-divider" role="separator"></div>
-
         <button class="nav-item" data-view="reports" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>Reports</span>
         </button>
+
+        <div class="nav-divider" role="separator"></div>
+
         <button class="nav-item" data-view="settings" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 008.6 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H2a2 2 0 010-4h.09A1.65 1.65 0 003.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H8a1.65 1.65 0 001-1.51V2a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V8a1.65 1.65 0 001.51 1H22a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
           <span>Settings</span>
@@ -156,6 +161,19 @@
 
       <!-- ===== DASHBOARD VIEW ===== -->
       <section class="view" id="view-dashboard" aria-labelledby="view-title">
+        <!-- Greeting -->
+        <div class="dash-greeting" id="dash-greeting">
+          <p class="dash-greeting-line" id="dash-greeting-line"></p>
+          <p class="dash-greeting-sub" id="dash-greeting-sub"></p>
+        </div>
+
+        <!-- Progressive onboarding hint -->
+        <div class="onboard-hint" id="onboard-hint" hidden>
+          <p class="onboard-hint-text" id="onboard-hint-text"></p>
+          <button class="btn btn-ghost btn-sm" id="onboard-hint-action" type="button"></button>
+          <button class="link-btn" id="onboard-hint-dismiss" type="button">Dismiss</button>
+        </div>
+
         <!-- Smart natural-language input -->
         <section class="smart-panel" aria-labelledby="smart-title">
           <div class="smart-head">
@@ -163,8 +181,8 @@
               <svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 3v3M15 3v3M6 6h12v13a2 2 0 01-2 2H8a2 2 0 01-2-2V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11h6M9 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </span>
             <div class="smart-head-text">
-              <h2 class="smart-title" id="smart-title">Add Transaction Quickly</h2>
-              <p class="smart-sub">Type a normal sentence — Ledger figures out the type, amount, category and more.</p>
+              <h2 class="smart-title" id="smart-title">What did you spend or earn?</h2>
+              <p class="smart-sub">Type a normal sentence — LedgerExpense figures out the type, amount, category and more.</p>
             </div>
           </div>
           <div class="smart-row">
@@ -178,9 +196,9 @@
           <div class="smart-examples">
             <span class="smart-examples-label">Try an example:</span>
             <button type="button" class="chip smart-chip" data-example="Bought groceries from Carrefour for 120 AED">Bought groceries from Carrefour for 120 AED</button>
-            <button type="button" class="chip smart-chip" data-example="Paid 150 AED for petrol at ENOC">Paid 150 AED for petrol at ENOC</button>
-            <button type="button" class="chip smart-chip" data-example="Received salary of 8000 AED">Received salary of 8000 AED</button>
-            <button type="button" class="chip smart-chip" data-example="Earned 1200 AED from freelance work">Earned 1200 AED from freelance work</button>
+            <button type="button" class="chip smart-chip" data-example="Paid 200 AED for petrol at ENOC">Paid 200 AED for petrol at ENOC</button>
+            <button type="button" class="chip smart-chip" data-example="Received 8,000 AED salary">Received 8,000 AED salary</button>
+            <button type="button" class="chip smart-chip" data-example="Paid 50 AED for a subscription">Paid 50 AED for a subscription</button>
           </div>
         </section>
 
@@ -188,11 +206,12 @@
           <div class="empty-illustration" aria-hidden="true">
             <svg viewBox="0 0 64 64" width="64" height="64"><rect x="8" y="16" width="48" height="34" rx="5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M8 26h48" stroke="currentColor" stroke-width="2.5"/><circle cx="17" cy="21" r="1.6" fill="currentColor"/><path d="M18 40h12M18 44h20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           </div>
-          <h2>Nothing tracked yet</h2>
-          <p>Add your first income or expense, or drop in a few samples to see how Ledger looks with data.</p>
+          <h2>Welcome to LedgerExpense 👋</h2>
+          <p>Let's start with something simple. What did you spend money on?</p>
+          <p class="empty-hint">Type above and hit <strong>Analyze Transaction</strong>, or add a transaction manually.</p>
           <div class="empty-actions">
             <button class="btn btn-primary" data-action="open-add" type="button">Add a transaction</button>
-            <button class="btn btn-ghost" data-action="load-sample" type="button">Load sample data</button>
+            <button class="btn btn-ghost" data-action="load-sample" type="button">Explore with sample data</button>
           </div>
         </div>
 
@@ -878,7 +897,8 @@
                 <h2 class="panel-title">Google Sheets Integration</h2>
                 <span class="panel-note">Cloud sync</span>
               </div>
-              <p class="budgets-hint">Sync your transactions to a private Google Spreadsheet for real-time backup and custom spreadsheet reporting.</p>
+              <p class="budgets-hint">Your expenses. Your spreadsheet. Connect your own Google Sheet and keep an organized copy of your financial records for custom reports and analysis.</p>
+              <p class="budgets-hint">Optional and private by default — this only connects when you choose to enable it.</p>
 
               <div class="sheet-status-card-inner">
                 <div class="sheet-status">
@@ -1192,12 +1212,62 @@
     </div>
   </div>
 
-  <!-- ============ AUTH SCREEN ============ -->
+  <!-- ============ AUTH SCREEN (homepage) ============ -->
   <div class="auth-screen" id="auth-screen" hidden>
+    <div class="auth-hero">
+      <div class="auth-hero-brand">
+        <img src="images/logo.png" class="auth-hero-logo" alt="Ledger Expense" />
+      </div>
+      <h1 class="auth-hero-title">Track your expenses by simply&nbsp;telling&nbsp;LedgerExpense what happened.</h1>
+      <p class="auth-hero-sub">Instead of complicated forms, just describe your transaction naturally. LedgerExpense organizes the rest.</p>
+
+      <div class="auth-hero-demo">
+        <div class="auth-demo-input">
+          <span class="auth-demo-text">"Bought groceries from Carrefour for 120 AED"</span>
+        </div>
+        <div class="auth-demo-arrow" aria-hidden="true">&darr;</div>
+        <div class="auth-demo-result">
+          <span class="auth-demo-tag">Expense</span>
+          <span class="auth-demo-tag">AED 120</span>
+          <span class="auth-demo-tag">Groceries</span>
+          <span class="auth-demo-tag">Carrefour</span>
+        </div>
+      </div>
+
+      <div class="auth-hero-props">
+        <div class="auth-prop">
+          <span class="auth-prop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M9 3v3M15 3v3M6 6h12v13a2 2 0 01-2 2H8a2 2 0 01-2-2V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 11h6M9 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </span>
+          <div>
+            <strong>Just type what you spent</strong>
+            <span>Describe transactions naturally — LedgerExpense automatically extracts the details.</span>
+          </div>
+        </div>
+        <div class="auth-prop">
+          <span class="auth-prop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </span>
+          <div>
+            <strong>Sync to your own Google Sheets</strong>
+            <span>Keep an organized copy of your records in a private spreadsheet for custom reports.</span>
+          </div>
+        </div>
+        <div class="auth-prop">
+          <span class="auth-prop-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <div>
+            <strong>Private by default</strong>
+            <span>Your data stays in your control. Cloud sync is optional and only connects when you choose.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="auth-card">
       <div class="auth-brand">
         <img src="images/logo.png" class="auth-logo-img" alt="Ledger Expense" />
-        <p class="auth-sub">Your personal finance tracker</p>
       </div>
 
       <!-- Login -->
