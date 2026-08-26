@@ -241,7 +241,11 @@
       }
     } catch (err) {
       console.error("[Ledger] Could not save transaction:", err);
-      ui.toast("Unable to save this transaction. Please try again.", "error");
+      if (navigator.onLine === false) {
+        ui.toast("You are offline. Connect to the internet before saving this transaction.", "error");
+      } else {
+        ui.toast("Unable to save this transaction. Please try again.", "error");
+      }
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = originalLabel;
