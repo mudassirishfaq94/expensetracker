@@ -1307,6 +1307,9 @@
           } else {
             ui.toast("Unable to clear transactions. Please try again.", "error");
           }
+        }).catch(function (err) {
+          console.error("[Ledger] clearAllTransactions failed:", err);
+          ui.toast("Unable to clear transactions. Please try again.", "error");
         });
       } else {
         ET.data.clearTransactions();
@@ -1315,14 +1318,41 @@
       }
     });
     setupDangerButton("confirm-clear-test", "btn-clear-test", "CLEAR TEST DATA", function () {
-      ET.data.clearTestData();
-      refresh();
-      ui.toast("Test data cleared.");
+      // In cloud mode, also clear transactions from the server
+      if (ET.database.isCloudMode()) {
+        ET.database.clearAllTransactions().then(function () {
+          ET.data.clearTestData();
+          refresh();
+          ui.toast("Test data cleared.");
+        }).catch(function (err) {
+          console.error("[Ledger] clearAllTransactions (test data) failed:", err);
+          // Still clear local data even if cloud delete fails
+          ET.data.clearTestData();
+          refresh();
+          ui.toast("Local test data cleared (cloud sync may be incomplete).", "info");
+        });
+      } else {
+        ET.data.clearTestData();
+        refresh();
+        ui.toast("Test data cleared.");
+      }
     });
     setupDangerButton("confirm-reset", "btn-reset", "RESET EVERYTHING", function () {
-      ET.data.resetApplication();
-      refresh();
-      ui.toast("Application has been reset.");
+      if (ET.database.isCloudMode()) {
+        // In cloud mode: clear cloud data first, then sign out cleanly
+        ET.database.clearAllTransactions().catch(function (err) {
+          console.error("[Ledger] cloud clear during reset failed:", err);
+        }).finally(function () {
+          ET.data.resetApplication();
+          ET.auth.signOut().catch(function () { /* ignore */ }).finally(function () {
+            ui.toast("Application has been reset. Please sign in again.");
+          });
+        });
+      } else {
+        ET.data.resetApplication();
+        refresh();
+        ui.toast("Application has been reset.");
+      }
     });
 
     // Auth screen
