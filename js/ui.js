@@ -219,6 +219,89 @@
     formatRelativeTime: formatRelativeTime,
 
     /**
+     * Toggle a button's busy / disabled state with a temporary label.
+     */
+    setButtonBusy: function (btn, busy, busyLabel, idleLabel) {
+      if (!btn) return;
+      if (busy) {
+        btn.disabled = true;
+        btn._idleLabel = btn.textContent;
+        btn.textContent = busyLabel || "Saving\u2026";
+      } else {
+        btn.disabled = false;
+        btn.textContent = idleLabel || btn._idleLabel || btn.textContent;
+      }
+    },
+
+    /* -------------------- Loading skeletons -------------------- */
+    skelLine: function (width) {
+      return '<div class="skel-line' + (width ? " " + width : "") + '"></div>';
+    },
+    skelCard: function (lines) {
+      var body = "";
+      for (var i = 0; i < lines; i++) {
+        body += this.skelLine(i % 2 ? "w60" : "");
+      }
+      return '<div class="skel-card">' + body + "</div>";
+    },
+    skelRows: function (count) {
+      var html = "";
+      for (var i = 0; i < count; i++) {
+        html += '<div class="skel-row"><span class="skel-line w30"></span><span class="skel-line w50"></span><span class="skel-line w20"></span></div>';
+      }
+      return '<div class="skel-card">' + html + "</div>";
+    },
+    skeletonViewHTML: function (view) {
+      if (view === "dashboard") {
+        return this.skelCard(2) + '<div class="stat-grid">' +
+          this.skelCard(1) + this.skelCard(1) + this.skelCard(1) +
+          this.skelCard(1) + this.skelCard(1) + this.skelCard(1) +
+          "</div>" + this.skelCard(3) + this.skelCard(3);
+      }
+      if (view === "transactions") return this.skelRows(6);
+      if (view === "reports") {
+        return '<div class="stat-grid">' + this.skelCard(1) + this.skelCard(1) + this.skelCard(1) + this.skelCard(1) + "</div>" +
+          this.skelCard(4) + this.skelCard(4);
+      }
+      if (view === "budgets" || view === "recurring") {
+        return this.skelCard(3);
+      }
+      if (view === "data" || view === "settings" || view === "sheets") {
+        return this.skelCard(4) + this.skelCard(4);
+      }
+      return this.skelCard(4);
+    },
+    /**
+     * Render skeleton placeholders for a view's main containers.
+     * Called while data is still loading so the app never flashes an empty
+     * state or "0" figures before real data arrives.
+     */
+    showViewSkeleton: function (view) {
+      var targets = {
+        dashboard: ["dashboard-content"],
+        transactions: ["expense-list-container"],
+        reports: ["reports-content"],
+        budgets: ["monthly-budget-status", "category-budget-list", "goals-list"],
+        recurring: ["upcoming-payments", "recurring-list"]
+      };
+      var ids = targets[view] || [];
+      var html = this.skeletonViewHTML(view);
+      if (view === "dashboard" && el("dashboard-empty")) el("dashboard-empty").hidden = true;
+      if (view === "transactions") {
+        if (el("expenses-empty")) el("expenses-empty").hidden = true;
+        if (el("expenses-no-results")) el("expenses-no-results").hidden = true;
+      }
+      if (view === "reports" && el("reports-empty")) el("reports-empty").hidden = true;
+      if (view === "budgets") {
+        if (el("goals-empty")) el("goals-empty").hidden = true;
+      }
+      ids.forEach(function (id) {
+        var node = el(id);
+        if (node) node.innerHTML = html;
+      });
+    },
+
+    /**
      * Update every hardcoded currency label in the UI to reflect the
      * user's current default currency.
      */

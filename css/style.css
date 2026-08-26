@@ -1238,6 +1238,50 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   }
 }
 
+/* ---------------------------- Loading skeletons ------------------------- */
+.skel {
+  position: relative;
+  overflow: hidden;
+  background: #ECEAE0;
+  border-radius: 8px;
+}
+.skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+  transform: translateX(-100%);
+  animation: skel-shimmer 1.4s infinite;
+}
+@keyframes skel-shimmer {
+  100% { transform: translateX(100%); }
+}
+.skel-view { display: flex; flex-direction: column; gap: 16px; }
+.skel-card {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 20px;
+}
+.skel-line { height: 12px; margin: 10px 0; }
+.skel-line.w20 { width: 20%; }
+.skel-line.w30 { width: 30%; }
+.skel-line.w40 { width: 40%; }
+.skel-line.w50 { width: 50%; }
+.skel-line.w60 { width: 60%; }
+.skel-hero { height: 84px; margin: 12px 0 4px; }
+.skel-block { height: 150px; }
+.skel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.skel-row:last-child { border-bottom: 0; }
+.skel-row .skel-line { margin: 0; }
+
 /* ------------------------ Notifications (Part 10) ----------------------- */
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 
@@ -1394,4 +1438,44 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 
 @media (max-width: 560px) {
   .notif-panel { top: 60px; right: 12px; }
+}
+
+/* --------------------------- Polish & consistency ------------------------ */
+button, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, select, textarea { max-width: 100%; }
+
+.btn:disabled,
+.icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Consistent card/panel radius */
+.panel, .stat-card, .hero-card, .goal-card, .recurring-card,
+.smart-panel, .budget-block, .sheets-guide {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Mobile filters wrap instead of overflowing */
+@media (max-width: 560px) {
+  .filters { flex-wrap: wrap; }
+  .search-wrap { flex: 1 1 100%; }
+  .type-filter { flex-wrap: wrap; }
+  .recurring-topbar .btn { flex: 1; }
+  .drawer { width: 100%; }
+  .goal-contribute { flex-direction: column; }
+  .goal-contribute .btn { width: 100%; }
+  .budget-edit-row .btn { width: 100%; }
+  .exp-card-foot { flex-wrap: wrap; gap: 8px; }
+}
+
+/* Icon-only buttons need comfortable touch targets on mobile */
+@media (max-width: 560px) {
+  .icon-btn { width: 44px; height: 44px; }
+  .notif-del { width: 30px; height: 30px; }
 }

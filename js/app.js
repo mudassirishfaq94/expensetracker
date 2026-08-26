@@ -30,11 +30,18 @@
     filters: { search: "", category: "", month: "", type: "all" },
     reportFilters: { range: "this-month", type: "all", category: "", start: "", end: "" },
     pendingDeleteId: null,
-    cloudRetry: null
+    cloudRetry: null,
+    dataReady: false
   };
 
   function refresh(opts) {
     opts = opts || {};
+
+    if (!state.dataReady) {
+      ui.showViewSkeleton(state.view);
+      return;
+    }
+
     var all = expenses.all();
 
     ui.updateCurrencyLabels();
@@ -538,6 +545,7 @@
 
   /* ------------------- Budgets & Goals handlers ------------------- */
   function saveMonthlyBudget() {
+    var btn = el("btn-save-monthly-budget");
     var input = el("budget-monthly-input");
     var errBox = el("budget-monthly-error");
     errBox.hidden = true;
@@ -549,13 +557,17 @@
       input.focus();
       return;
     }
+    ui.setButtonBusy(btn, true, "Saving\u2026");
     ET.budgets.setMonthlyBudget(input.value);
     refresh();
-    ui.toast("Monthly budget saved.");
-    runAlertCheck();
+    runAlertCheck().finally(function () {
+      ui.setButtonBusy(btn, false);
+      ui.toast("Monthly budget saved.");
+    });
   }
 
   function addCategoryBudget() {
+    var btn = el("btn-add-cat-budget");
     var sel = el("budget-cat-select");
     var amount = el("budget-cat-amount");
     var errBox = el("budget-cat-error");
@@ -567,11 +579,14 @@
       errBox.hidden = false;
       return;
     }
+    ui.setButtonBusy(btn, true, "Saving\u2026");
     ET.budgets.setCategoryBudget(sel.value, Number(amount.value));
     amount.value = "";
     refresh();
-    ui.toast("Category budget saved.");
-    runAlertCheck();
+    runAlertCheck().finally(function () {
+      ui.setButtonBusy(btn, false);
+      ui.toast("Category budget saved.");
+    });
   }
 
   function handleBudgetListClick(e) {
@@ -584,6 +599,7 @@
   }
 
   function addGoal() {
+    var btn = el("btn-add-goal");
     var name = el("goal-name");
     var target = el("goal-target");
     var deadline = el("goal-deadline");
@@ -599,9 +615,12 @@
     name.value = "";
     target.value = "";
     deadline.value = "";
+    ui.setButtonBusy(btn, true, "Creating\u2026");
     refresh();
-    ui.toast("Goal created.");
-    runAlertCheck();
+    runAlertCheck().finally(function () {
+      ui.setButtonBusy(btn, false);
+      ui.toast("Goal created.");
+    });
   }
 
   function handleGoalsListClick(e) {
@@ -614,9 +633,12 @@
         ui.toast(result.error, "error");
       } else {
         if (amountInput) amountInput.value = "";
+        contribBtn.disabled = true;
         refresh();
-        ui.toast("Contribution added.");
-        runAlertCheck();
+        runAlertCheck().finally(function () {
+          contribBtn.disabled = false;
+          ui.toast("Contribution added.");
+        });
       }
       return;
     }
@@ -697,21 +719,26 @@
   function handleRecurringSubmit(e) {
     e.preventDefault();
     var id = el("rf-id").value;
+    var saveBtn = el("btn-save-recurring");
     var errBox = el("rf-error");
     errBox.hidden = true;
     errBox.textContent = "";
+    ui.setButtonBusy(saveBtn, true, "Saving\u2026");
     var result = id
       ? ET.recurring.updateRecurring(id, readRecurringForm())
       : ET.recurring.addRecurring(readRecurringForm());
     if (result.error) {
+      ui.setButtonBusy(saveBtn, false);
       errBox.textContent = result.error;
       errBox.hidden = false;
       return;
     }
     ui.closeRecurringDrawer();
     refresh();
-    ui.toast(id ? "Recurring transaction updated." : "Recurring transaction added.");
-    runAlertCheck();
+    runAlertCheck().finally(function () {
+      ui.setButtonBusy(saveBtn, false);
+      ui.toast(id ? "Recurring transaction updated." : "Recurring transaction added.");
+    });
   }
 
   function handleRecurringListClick(e) {
@@ -1329,6 +1356,7 @@
   function startLocalApp() {
     ET.database.setCloudMode(false);
     if (ET.notifications) ET.notifications.setVisible(false);
+    state.dataReady = true;
     ui.hideAuthScreen();
     ui.hideLoading();
     ui.hideUserMenu();
@@ -1338,15 +1366,21 @@
   }
 
   function enterCloudApp(user) {
-    ui.showLoading("Loading your financial data\u2026");
+    state.dataReady = false;
     ET.database.setCloudMode(true);
     ET.database.subscribeToMutations();
     if (ET.notifications) ET.notifications.setVisible(true);
+    /* Show skeleton placeholders instead of the loading overlay while data
+       loads — never flash an empty dashboard or "0" figures. */
+    ui.hideLoading();
+    ui.updateUserMenu(user);
+    ui.setView("dashboard", "dashboard");
+    refresh();
+    setAddButtonsDisabled(true);
     ET.database.ensureProfile()
       .then(function () {
         var check = ET.migration.runCheck();
         if (check === true) {
-          ui.hideLoading();
           ui.updateUserMenu(user);
           ui.showMigrationScreen();
           return;
@@ -1356,7 +1390,8 @@
             if (ET.notifications) await ET.notifications.load();
             await processRecurringNow();
             await runAlertCheck();
-            ui.hideLoading();
+            state.dataReady = true;
+            setAddButtonsDisabled(false);
             ui.updateUserMenu(user);
             ui.hideMigrationScreen();
             ui.setView("dashboard", "dashboard");
@@ -1366,10 +1401,17 @@
       })
       .catch(function (err) {
         console.error("[Ledger] cloud startup error:", err);
+        state.dataReady = true;
+        setAddButtonsDisabled(false);
         ui.hideLoading();
         state.cloudRetry = function () { enterCloudApp(user); };
         ui.showCloudError("Unable to load your financial data. Please check your internet connection and try again.");
       });
+  }
+
+  function setAddButtonsDisabled(flag) {
+    var buttons = [el("btn-add-expense"), el("btn-add-mobile")];
+    buttons.forEach(function (b) { if (b) b.disabled = flag; });
   }
 
   function doMigrate() {
@@ -1385,6 +1427,8 @@
       if (result.ok) {
         return ET.settings.load().then(function () {
           return ET.database.loadAll().then(function () {
+            state.dataReady = true;
+            setAddButtonsDisabled(false);
             ui.hideMigrationScreen();
             ui.updateUserMenu(ET.auth.getUser());
             ui.setView("dashboard", "dashboard");
@@ -1404,6 +1448,8 @@
     ET.settings.load().then(function () {
       return ET.database.loadAll().then(async function () {
         if (ET.notifications) await ET.notifications.load();
+        state.dataReady = true;
+        setAddButtonsDisabled(false);
         await runAlertCheck();
         ui.hideMigrationScreen();
         ui.updateUserMenu(ET.auth.getUser());
@@ -1419,6 +1465,7 @@
     await ET.auth.signOut();
     ET.database.setCloudMode(false);
     if (ET.notifications) ET.notifications.setVisible(false);
+    state.dataReady = false;
     ui.hideUserMenu();
     ui.hideMigrationScreen();
     ui.hideCloudError();

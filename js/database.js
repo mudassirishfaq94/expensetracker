@@ -103,8 +103,6 @@
       user = res.data.user;
     }
 
-    console.log("Authenticated user:", user.id);
-
     var errors = ET.transactions ? ET.transactions.validate(input) : {};
     if (errors && Object.keys(errors).length > 0) {
       var err = new Error("Transaction is invalid.");
@@ -131,8 +129,6 @@
       sync_status: "synced"
     };
 
-    console.log("Attempting Supabase transaction insert:", transactionToInsert);
-
     var result = await c.from("transactions").insert([transactionToInsert]).select().single();
 
     if (result.error) {
@@ -140,7 +136,6 @@
       throw result.error;
     }
 
-    console.log("Transaction successfully saved:", result.data);
     return result.data;
   }
 

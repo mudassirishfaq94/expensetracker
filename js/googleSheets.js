@@ -56,7 +56,9 @@ var WIDTHS = [180, 100, 220, 120, 90, 180, 200, 120, 250, 180, 180, 120];
 var DATE_FORMAT = "dd mmm yyyy";
 var DATETIME_FORMAT = "dd mmm yyyy, hh:mm AM/PM";
 var AMOUNT_FORMAT = "#,##0.00";
-var AED_FORMAT = '#,##0.00 "AED"';
+/* Summary totals are currency-neutral because transactions can use different
+   currencies — each row's currency lives in its own column on the sheet. */
+var SUMMARY_CURRENCY_FORMAT = "#,##0.00";
 var HEADER_BG = "#0E3B2C";
 
 function doPost(e) {
@@ -131,6 +133,7 @@ function initializeSpreadsheet() {
 
 function initializeSpreadsheet_(sh, sheetName) {
   ensureHeaders_(sh);
+  ensureFilter_(sh);
   fixExistingData_(sh);
   formatHeader_(sh);
   setWidths_(sh);
@@ -138,6 +141,13 @@ function initializeSpreadsheet_(sh, sheetName) {
   backfillHelpers_(sh);
   applyConditionalFormatting_(sh);
   buildSummary_();
+}
+
+/* Add a filter to the header row so users can sort/filter the ledger. */
+function ensureFilter_(sh) {
+  if (!sh.getFilter()) {
+    sh.getRange(1, 1, 1, COLUMNS.length).createFilter();
+  }
 }
 
 /* --------------------------- data migration ---------------------------- */
@@ -449,7 +459,7 @@ function formatSummary_(summary) {
 
   var currencyCells = ["B4", "B5", "B6", "B9", "B10", "B11", "B17", "B18", "B19"];
   for (var j = 0; j < currencyCells.length; j++) {
-    summary.getRange(currencyCells[j]).setNumberFormat(AED_FORMAT);
+    summary.getRange(currencyCells[j]).setNumberFormat(SUMMARY_CURRENCY_FORMAT);
   }
   summary.getRange("B6").setFontWeight("bold");
   summary.getRange("B11").setFontWeight("bold");
@@ -464,11 +474,11 @@ function formatSummary_(summary) {
     .setFontWeight("bold")
     .setBackground("#EEEAE0")
     .setHorizontalAlignment("center");
-  summary.getRange("K15").setNumberFormat(AED_FORMAT);
-  summary.getRange("L15").setNumberFormat(AED_FORMAT);
-  summary.getRange("M15").setNumberFormat(AED_FORMAT);
-  summary.getRange("E14:E200").setNumberFormat(AED_FORMAT);
-  summary.getRange("H14:H200").setNumberFormat(AED_FORMAT);
+  summary.getRange("K15").setNumberFormat(SUMMARY_CURRENCY_FORMAT);
+  summary.getRange("L15").setNumberFormat(SUMMARY_CURRENCY_FORMAT);
+  summary.getRange("M15").setNumberFormat(SUMMARY_CURRENCY_FORMAT);
+  summary.getRange("E14:E200").setNumberFormat(SUMMARY_CURRENCY_FORMAT);
+  summary.getRange("H14:H200").setNumberFormat(SUMMARY_CURRENCY_FORMAT);
   summary.getRange("P14").setFontSize(8).setFontColor("#AAAAAA");
 }
 `;
