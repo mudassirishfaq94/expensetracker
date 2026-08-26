@@ -1367,6 +1367,14 @@
       });
     });
 
+    // PWA install + update
+    el("btn-install-pwa").addEventListener("click", function () {
+      if (ET.pwa) ET.pwa.triggerInstall();
+    });
+    el("btn-pwa-update").addEventListener("click", function () {
+      if (ET.pwa) ET.pwa.applyUpdate();
+    });
+
     el("btn-menu").addEventListener("click", openSidebar);
     el("sidebar-backdrop").addEventListener("click", closeSidebar);
 
@@ -1592,6 +1600,7 @@
     ui.populateCategorySelects();
     wire();
     if (ET.notifications) ET.notifications.init();
+    if (ET.pwa) ET.pwa.init();
 
     ET.supabase.init();
     if (!ET.supabase.isConfigured()) {

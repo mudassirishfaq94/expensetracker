@@ -1897,6 +1897,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("settings-mode-note").textContent = database.isCloudMode() ? "Cloud account" : "Local mode";
       el("settings-name").textContent = (user && user.user_metadata && user.user_metadata.full_name) || (user && user.email) || "—";
       el("settings-email").textContent = (user && user.email) || "—";
+      if (ET.pwa && ET.pwa.syncInstallButton) ET.pwa.syncInstallButton();
       var sel = el("settings-currency");
       var currentCurrency = ET.settings ? ET.settings.getCurrency() : "AED";
       sel.value = currentCurrency;

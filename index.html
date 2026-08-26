@@ -2,9 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Ledger — Personal Finance Tracker</title>
   <meta name="description" content="A calm, local-first income and expense tracker." />
+
+  <!-- PWA / app metadata -->
+  <meta name="theme-color" content="#0E3B2C" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ledger" />
+  <meta name="application-name" content="Ledger" />
 
   <!-- Fonts: Fraunces (display, used sparingly) + Plus Jakarta Sans (UI/body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -909,6 +921,7 @@
                 <div class="storage-row"><span class="storage-label">Email</span><span class="storage-value" id="settings-email">—</span></div>
               </div>
               <div class="data-actions">
+                <button class="btn btn-primary" id="btn-install-pwa" type="button" hidden>Install Ledger</button>
                 <button class="btn btn-ghost" id="btn-settings-logout" type="button">Log out</button>
               </div>
             </section>
@@ -948,6 +961,18 @@
 
   <!-- Skeleton overlay (covers main content while data loads) -->
   <div class="skel-layer" id="skeleton-layer" hidden aria-hidden="true"></div>
+
+  <!-- Offline / connection indicator -->
+  <div class="conn-banner" id="conn-banner" hidden>
+    <span class="conn-banner-icon" aria-hidden="true">&#9888;</span>
+    <span id="conn-text">You're offline. Some features may be unavailable.</span>
+  </div>
+
+  <!-- New app version available -->
+  <div class="conn-banner is-update" id="pwa-update-bar" hidden>
+    <span id="conn-update-text">A new version of Ledger is available.</span>
+    <button class="btn btn-sm" id="btn-pwa-update" type="button">Refresh</button>
+  </div>
 
   <!-- ============ ADD / EDIT DRAWER ============ -->
   <div class="drawer-overlay" id="drawer-overlay" hidden></div>
@@ -1288,6 +1313,7 @@
   <script src="js/database.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/notifications.js"></script>
+  <script src="js/pwa.js"></script>
   <script src="js/migration.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>

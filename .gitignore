@@ -14,3 +14,6 @@ desktop.ini
 
 # Dependencies (not used in Part 1 — reserved for later phases)
 node_modules/
+
+# Dev tools
+tools/
