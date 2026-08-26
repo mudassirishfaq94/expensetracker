@@ -1703,7 +1703,7 @@ function setupDangerButton(inputId, btnId, phrase, action) {
     if (ET.pwa) ET.pwa.init();
 
     ET.supabase.init();
-    if (!ET.supabase.isConfigured()) {
+    if (!ET.supabase.isConfigured() || !ET.supabase.getClient()) {
       startLocalApp();
       return;
     }

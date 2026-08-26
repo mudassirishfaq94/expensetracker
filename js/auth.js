@@ -70,7 +70,7 @@
 
   async function signUp(input) {
     var c = client();
-    if (!c) return { error: "Cloud connection is not configured." };
+    if (!c) return { error: "Cloud sync is unavailable. Try again in a moment." };
     var email = String(input.email || "").trim();
     var fullName = String(input.fullName || "").trim();
     var password = String(input.password || "");
@@ -90,7 +90,7 @@
 
   async function signIn(email, password) {
     var c = client();
-    if (!c) return { error: "Cloud connection is not configured." };
+    if (!c) return { error: "Cloud sync is unavailable. Try again in a moment." };
     if (!email || !String(email).trim()) return { error: "Enter your email address." };
     if (!password) return { error: "Enter your password." };
     var result = await c.auth.signInWithPassword({ email: String(email).trim(), password: String(password) });
@@ -111,7 +111,7 @@
 
   async function resetPassword(email) {
     var c = client();
-    if (!c) return { error: "Cloud connection is not configured." };
+    if (!c) return { error: "Cloud sync is unavailable. Try again in a moment." };
     if (!validateEmail(String(email || "").trim())) return { error: "Enter a valid email address." };
     var result = await c.auth.resetPasswordForEmail(String(email).trim(), {
       redirectTo: global.location ? global.location.origin + global.location.pathname : undefined
@@ -122,7 +122,7 @@
 
   async function updatePassword(newPassword) {
     var c = client();
-    if (!c) return { error: "Cloud connection is not configured." };
+    if (!c) return { error: "Cloud sync is unavailable. Try again in a moment." };
     var pwErr = validatePassword(newPassword);
     if (pwErr) return { error: pwErr };
     var result = await c.auth.updateUser({ password: String(newPassword) });
