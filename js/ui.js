@@ -514,10 +514,10 @@
         return (
           '<li class="recent-item">' +
             '<span class="recent-avatar ' + slug + '" style="background:var(--bg);color:var(--fg)">' + esc(initials(e.title)) + "</span>" +
-            '<span class="recent-main">' +
+            '<div class="recent-main">' +
               '<span class="recent-title">' + esc(e.title) + "</span>" +
               '<span class="recent-meta">' + esc(meta) + "</span>" +
-            "</span>" +
+            "</div>" +
             '<span class="recent-amt ' + (type === "income" ? "is-income" : "is-expense") + '">' +
               signedCurrency(e.amount, type, e.currency) +
             "</span>" +
@@ -1514,8 +1514,10 @@ openConfirm: function (message, title, confirmLabel) {
         return (
           '<li class="recent-item">' +
             '<span class="recent-avatar" style="background:var(--paper-2);color:var(--muted)">' + esc(initials(r.title)) + "</span>" +
-            '<span class="recent-main"><span class="recent-title">' + esc(r.title) + "</span>" +
-            '<span class="recent-meta">' + this.dueRelativeLabel(r.daysToDue) + "</span></span>" +
+            '<div class="recent-main">' +
+              '<span class="recent-title">' + esc(r.title) + "</span>" +
+              '<span class="recent-meta">' + this.dueRelativeLabel(r.daysToDue) + "</span>" +
+            "</div>" +
             '<span class="recent-amt ' + (r.type === "income" ? "is-income" : "is-expense") + '">' +
               (r.type === "income" ? "+ " : "− ") + formatCurrency(r.amount, r.currency) + "</span>" +
           "</li>"
