@@ -373,10 +373,9 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 .stat-grid {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
   grid-template-areas:
-    "hero income expenses"
-    "hero count .";
+    "hero income expenses count";
   gap: 16px;
   margin-bottom: 0;
 }
@@ -435,9 +434,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 .stat-card:nth-of-type(2) { grid-area: income; }
 .stat-card:nth-of-type(3) { grid-area: expenses; }
-.stat-card:nth-of-type(4) { grid-area: month; }
-.stat-card:nth-of-type(5) { grid-area: today; }
-.stat-card:nth-of-type(6) { grid-area: count; }
+.stat-card:nth-of-type(4) { grid-area: count; }
 .stat-head { display: flex; align-items: center; gap: 10px; }
 .stat-icon {
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px;

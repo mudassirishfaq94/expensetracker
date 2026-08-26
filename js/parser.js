@@ -302,10 +302,31 @@
     var taggedNums = nums.filter(function (n) { return n.tagged; });
     if (taggedNums.length > 1) return { amount: null, error: MSG_MULTI, raw: null, index: -1 };
 
-    var chosen = null;
+    /* A single explicit currency amount is the total — item quantities like
+       "2 rolls and 1 tea" before it are not separate transactions. */
     if (taggedNums.length === 1) {
-      chosen = taggedNums[0];
-    } else if (nums.length === 1) {
+      return { amount: taggedNums[0].value, raw: taggedNums[0].raw, index: taggedNums[0].index, error: null };
+    }
+
+    /* A single "for X" / "total X" / "cost X" amount also identifies one
+       total for a multi-item purchase (e.g. "bought 2 rolls and 1 tea for 6"). */
+    var amountPhraseRe = /\b(for|total|cost|costs|comes\s+to)\s+(?:about\s+)?(\d[\d,]*(?:\.\d+)?)/gi;
+    var ap = null;
+    var apCount = 0;
+    var apMatch;
+    while ((apMatch = amountPhraseRe.exec(text)) !== null) {
+      apCount++;
+      if (apCount === 1) ap = { value: normalizeNumber(apMatch[2]), index: apMatch.index, phrase: apMatch[1], raw: apMatch[2] };
+    }
+    if (apCount === 1) {
+      return { amount: ap.value, raw: ap.raw, phrase: ap.phrase, index: ap.index, error: null };
+    }
+    if (apCount > 1) {
+      return { amount: null, error: MSG_MULTI, raw: null, index: -1 };
+    }
+
+    var chosen = null;
+    if (nums.length === 1) {
       chosen = nums[0];
     } else if (nums.length > 1) {
       if (/\b(?:and|or|also|plus|then)\b/i.test(text)) {
@@ -510,6 +531,12 @@
     var vendor = detectVendor(raw);
 
     var titleSource = dateRes.cleaned;
+    if (amountRes.phrase && amountRes.raw) {
+      titleSource = titleSource.replace(
+        new RegExp("\\b" + escRe(amountRes.phrase) + "\\s+(?:about\\s+)?" + escRe(amountRes.raw), "i"),
+        " "
+      );
+    }
     if (amountRes.raw) {
       titleSource = titleSource.replace(new RegExp(escRe(amountRes.raw)), " ");
     }
