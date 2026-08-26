@@ -741,28 +741,27 @@ openConfirm: function (message, title, confirmLabel) {
 
     /* -------------------- view switching -------------------- */
     setView: function (view, navKey) {
-      el("view-dashboard").hidden = view !== "dashboard";
-      el("view-expenses").hidden = view !== "transactions";
-      el("view-sheets").hidden = view !== "sheets";
-      el("view-reports").hidden = view !== "reports";
-      el("view-budgets").hidden = view !== "budgets";
-      el("view-recurring").hidden = view !== "recurring";
-      el("view-data").hidden = view !== "data";
-      el("view-settings").hidden = view !== "settings";
+      var effectiveView = view === "sheets" ? "settings" : view;
+      if (el("view-dashboard")) el("view-dashboard").hidden = effectiveView !== "dashboard";
+      if (el("view-expenses")) el("view-expenses").hidden = effectiveView !== "transactions";
+      if (el("view-reports")) el("view-reports").hidden = effectiveView !== "reports";
+      if (el("view-budgets")) el("view-budgets").hidden = effectiveView !== "budgets";
+      if (el("view-recurring")) el("view-recurring").hidden = effectiveView !== "recurring";
+      if (el("view-data")) el("view-data").hidden = effectiveView !== "data";
+      if (el("view-settings")) el("view-settings").hidden = effectiveView !== "settings";
 
       var titles = {
         dashboard: { title: "Dashboard", eyebrow: "Overview" },
         transactions: { title: "Transactions", eyebrow: "All activity" },
         income: { title: "Income", eyebrow: "Incoming money" },
         expenses: { title: "Expenses", eyebrow: "Outgoing money" },
-        sheets: { title: "Google Sheets", eyebrow: "Cloud backup & sync" },
         reports: { title: "Reports", eyebrow: "Analytics & insights" },
         budgets: { title: "Budgets & Goals", eyebrow: "Limits & savings targets" },
         recurring: { title: "Recurring", eyebrow: "Scheduled income & expenses" },
         data: { title: "Data & Backup", eyebrow: "Export, import & manage" },
-        settings: { title: "Settings", eyebrow: "Account & preferences" }
+        settings: { title: "Settings", eyebrow: "Account, preferences & integrations" }
       };
-      var key = navKey || view;
+      var key = navKey || effectiveView;
       var meta = titles[key] || titles.transactions;
       el("view-title").textContent = meta.title;
       el("view-eyebrow").textContent = meta.eyebrow;
@@ -1911,6 +1910,7 @@ openConfirm: function (message, title, confirmLabel) {
           console.error("[Ledger] Could not load user settings:", err);
         });
       }
+      this.renderSheetsPage();
     },
   };
 

@@ -90,10 +90,6 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>Reports</span>
         </button>
-        <button class="nav-item" data-view="sheets" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 9h16M9 9v11" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          <span>Google Sheets</span>
-        </button>
         <button class="nav-item" data-view="settings" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 008.6 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H2a2 2 0 010-4h.09A1.65 1.65 0 003.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H8a1.65 1.65 0 001-1.51V2a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V8a1.65 1.65 0 001.51 1H22a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
           <span>Settings</span>
@@ -405,89 +401,7 @@
         </div>
       </section>
 
-      <!-- ===== GOOGLE SHEETS VIEW ===== -->
-      <section class="view" id="view-sheets" hidden aria-labelledby="view-title">
-        <div class="sheets-layout">
 
-          <div class="sheets-main">
-            <!-- Status card -->
-            <section class="panel sheet-status-card">
-              <div class="sheet-status">
-                <span class="status-dot" id="sheets-status-dot"></span>
-                <div>
-                  <p class="status-title" id="sheets-status-title">Not Connected</p>
-                  <p class="status-sub" id="sheets-status-sub">Connect a Google Spreadsheet to back up your transactions.</p>
-                </div>
-              </div>
-              <div class="status-meta">
-                <span>Last sync: <strong id="sheets-last-sync">Never</strong></span>
-                <span>Spreadsheet: <strong id="sheets-spreadsheet-name">&mdash;</strong></span>
-              </div>
-            </section>
-
-            <!-- Connection settings -->
-            <section class="panel">
-              <h2 class="panel-title">Connection settings</h2>
-              <form id="sheets-config-form" class="sheets-form">
-                <div class="field">
-                  <label for="sheets-url">Google Apps Script Web App URL <span class="req">*</span></label>
-                  <input type="url" id="sheets-url" placeholder="https://script.google.com/macros/s/…/exec" />
-                </div>
-                <div class="field-row">
-                  <div class="field">
-                    <label for="sheets-spreadsheet">Spreadsheet name</label>
-                    <input type="text" id="sheets-spreadsheet" placeholder="My Expense Tracker" />
-                  </div>
-                  <div class="field">
-                    <label for="sheets-sheet">Sheet name</label>
-                    <input type="text" id="sheets-sheet" placeholder="Transactions" />
-                  </div>
-                </div>
-                <p class="sheets-error" id="sheets-error" hidden></p>
-                <div class="sheets-actions">
-                  <button type="button" class="btn btn-ghost" id="btn-test-connection">Test Connection</button>
-                  <button type="submit" class="btn btn-primary" id="btn-save-config">Save &amp; Connect</button>
-                  <button type="button" class="btn btn-danger" id="btn-disconnect" hidden>Disconnect</button>
-                </div>
-              </form>
-            </section>
-
-            <!-- Synchronization -->
-            <section class="panel">
-              <div class="panel-head">
-                <h2 class="panel-title">Synchronization</h2>
-              </div>
-              <p class="sheets-help">Sync all local transactions to Google Sheets. Already-synced transactions are skipped.</p>
-              <div class="sheets-actions">
-                <button type="button" class="btn btn-primary" id="btn-sync-all">Sync All</button>
-                <button type="button" class="btn btn-ghost" id="btn-sync-existing">Sync Existing Transactions</button>
-              </div>
-              <div class="sheets-result" id="sheets-result" hidden></div>
-            </section>
-          </div>
-
-          <aside class="sheets-guide panel">
-            <h2 class="panel-title">How to connect your spreadsheet</h2>
-            <ol class="guide-steps">
-              <li>Create or open a <strong>Google Spreadsheet</strong>.</li>
-              <li>Add a sheet named <strong>Transactions</strong>.</li>
-              <li>Open <strong>Extensions &rarr; Apps Script</strong>.</li>
-              <li>Delete any placeholder code and paste the script below.</li>
-              <li>Click <strong>Deploy &rarr; New deployment &rarr; Web app</strong>. Run as <strong>Me</strong>, access <strong>Anyone</strong>.</li>
-              <li>Copy the <strong>Web app URL</strong>.</li>
-              <li>Paste the URL in the connection settings and click <strong>Save &amp; Connect</strong>.</li>
-            </ol>
-            <div class="code-block">
-              <div class="code-head">
-                <span>Google Apps Script (Code.gs)</span>
-                <button class="link-btn" id="btn-copy-script" type="button">Copy</button>
-              </div>
-              <pre id="apps-script-code"></pre>
-            </div>
-          </aside>
-
-        </div>
-      </section>
 
       <!-- ===== REPORTS VIEW ===== -->
       <section class="view" id="view-reports" hidden aria-labelledby="view-title">
@@ -882,6 +796,10 @@
             <section class="panel">
               <div class="panel-head"><h2 class="panel-title">Storage information</h2></div>
               <div id="storage-info" class="storage-info"></div>
+              <p class="budgets-hint" style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border)">
+                Looking for Google Sheets sync?
+                <button class="link-btn" data-view-jump="settings" type="button">Manage in Settings &rarr;</button>
+              </p>
             </section>
 
             <!-- Danger zone -->
@@ -947,11 +865,93 @@
             </section>
 
             <section class="panel">
-              <div class="panel-head"><h2 class="panel-title">Data</h2></div>
+              <div class="panel-head"><h2 class="panel-title">Data &amp; Backup</h2></div>
               <p class="budgets-hint">Export, import, backups and storage management.</p>
               <div class="data-actions">
                 <button class="btn btn-ghost" data-view-jump="data" type="button">Open Data &amp; Backup</button>
               </div>
+            </section>
+
+            <!-- Google Sheets Integration -->
+            <section class="panel" id="settings-sheets-panel">
+              <div class="panel-head">
+                <h2 class="panel-title">Google Sheets Integration</h2>
+                <span class="panel-note">Cloud sync</span>
+              </div>
+              <p class="budgets-hint">Sync your transactions to a private Google Spreadsheet for real-time backup and custom spreadsheet reporting.</p>
+
+              <div class="sheet-status-card-inner">
+                <div class="sheet-status">
+                  <span class="status-dot" id="sheets-status-dot"></span>
+                  <div>
+                    <p class="status-title" id="sheets-status-title">Not Connected</p>
+                    <p class="status-sub" id="sheets-status-sub">Connect a Google Spreadsheet to back up your transactions.</p>
+                  </div>
+                </div>
+                <div class="status-meta">
+                  <span>Last sync: <strong id="sheets-last-sync">Never</strong></span>
+                  <span>Spreadsheet: <strong id="sheets-spreadsheet-name">&mdash;</strong></span>
+                </div>
+              </div>
+
+              <form id="sheets-config-form" class="sheets-form">
+                <div class="field">
+                  <label for="sheets-url">Google Apps Script Web App URL <span class="req">*</span></label>
+                  <input type="url" id="sheets-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" />
+                </div>
+                <div class="field-row">
+                  <div class="field">
+                    <label for="sheets-spreadsheet">Spreadsheet name</label>
+                    <input type="text" id="sheets-spreadsheet" placeholder="My Expense Tracker" />
+                  </div>
+                  <div class="field">
+                    <label for="sheets-sheet">Sheet name</label>
+                    <input type="text" id="sheets-sheet" placeholder="Transactions" />
+                  </div>
+                </div>
+                <p class="sheets-error" id="sheets-error" hidden></p>
+                <div class="sheets-actions">
+                  <button type="button" class="btn btn-ghost" id="btn-test-connection">Test Connection</button>
+                  <button type="submit" class="btn btn-primary" id="btn-save-config">Save &amp; Connect</button>
+                  <button type="button" class="btn btn-danger" id="btn-disconnect" hidden>Disconnect</button>
+                </div>
+              </form>
+
+              <div class="sheets-sync-section">
+                <h3 class="panel-subtitle">Manual Synchronization</h3>
+                <p class="sheets-help">Sync all local transactions to Google Sheets. Already-synced transactions are skipped.</p>
+                <div class="sheets-actions">
+                  <button type="button" class="btn btn-primary" id="btn-sync-all">Sync All</button>
+                  <button type="button" class="btn btn-ghost" id="btn-sync-existing">Sync Existing Transactions</button>
+                </div>
+                <div class="sheets-result" id="sheets-result" hidden></div>
+              </div>
+
+              <!-- Collapsible Guide & Code -->
+              <details class="sheets-guide-accordion" id="sheets-guide-details">
+                <summary class="sheets-guide-summary">
+                  <span>How to connect &amp; Apps Script code</span>
+                  <span class="guide-toggle-icon" aria-hidden="true">&#9662;</span>
+                </summary>
+                <div class="guide-body">
+                  <ol class="guide-steps">
+                    <li>Create or open a <strong>Google Spreadsheet</strong>.</li>
+                    <li>Add a sheet named <strong>Transactions</strong>.</li>
+                    <li>Open <strong>Extensions &rarr; Apps Script</strong>.</li>
+                    <li>Delete placeholder code and paste the script below.</li>
+                    <li>Click <strong>Deploy &rarr; New deployment &rarr; Web app</strong>. Run as <strong>Me</strong>, access <strong>Anyone</strong>.</li>
+                    <li>Copy the <strong>Web app URL</strong>.</li>
+                    <li>Paste the URL above and click <strong>Save &amp; Connect</strong>.</li>
+                  </ol>
+                  <div class="code-block">
+                    <div class="code-head">
+                      <span>Google Apps Script (Code.gs)</span>
+                      <button class="link-btn" id="btn-copy-script" type="button">Copy</button>
+                    </div>
+                    <pre id="apps-script-code"></pre>
+                  </div>
+                </div>
+              </details>
             </section>
           </div>
         </div>
@@ -1118,7 +1118,7 @@
 
       <div class="field-row">
         <div class="field">
-          <label for="rf-vendor">Vendor / source</label>
+          <label for="rf-vendor" id="rf-vendor-label">Vendor / source</label>
           <input type="text" id="rf-vendor" placeholder="e.g. Netflix" autocomplete="off" maxlength="80" />
         </div>
       </div>

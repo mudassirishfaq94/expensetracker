@@ -12,7 +12,7 @@
        at any host root or subdirectory (Hostinger subdomain, GitHub Pages…).
    ========================================================================= */
 
-const VERSION = "ledger-v2";
+const VERSION = "ledger-v3";
 const SHELL_CACHE = VERSION + "-shell";
 
 const SHELL_ASSETS = [
@@ -118,7 +118,7 @@ self.addEventListener("fetch", (event) => {
             }
             return res;
           })
-          .catch(() => cached);
+          .catch(() => caches.match(new URL(url.pathname, url.origin)));
         return cached || fetchPromise;
       })
     );

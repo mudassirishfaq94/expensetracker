@@ -450,14 +450,22 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .recent-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
 .recent-amt { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
 
-/* ------------------------- Google Sheets page ------------------------- */
-.sheets-layout {
-  display: grid; grid-template-columns: 1fr 400px; gap: 16px; align-items: start;
+/* ------------------------- Google Sheets in Settings ------------------------- */
+#settings-sheets-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.sheets-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.sheet-status-card {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; flex-wrap: wrap;
+.sheet-status-card-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
 }
 .sheet-status { display: flex; align-items: center; gap: 13px; }
 .status-dot {
@@ -468,9 +476,9 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .status-dot.is-fail { background: var(--danger); box-shadow: 0 0 0 4px rgba(180,64,46,0.12); }
 .status-dot.is-busy { background: var(--gold); animation: pulse 1.1s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-.status-title { font-size: 17px; font-weight: 700; color: var(--ink); }
-.status-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
-.status-meta { font-size: 12.5px; color: var(--muted); display: flex; gap: 18px; flex-wrap: wrap; }
+.status-title { font-size: 15.5px; font-weight: 700; color: var(--ink); }
+.status-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.status-meta { font-size: 12.5px; color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; }
 .status-meta strong { color: var(--ink-2); font-weight: 600; }
 .sheets-form { display: flex; flex-direction: column; gap: 14px; }
 .sheets-actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -480,24 +488,75 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   border-radius: 10px; padding: 10px 14px;
 }
 .sheets-result {
-  margin-top: 14px; font-size: 13.5px; color: var(--ink-2); white-space: pre-line;
+  margin-top: 12px; font-size: 13px; color: var(--ink-2); white-space: pre-line;
   background: var(--paper-2); border: 1px solid var(--line);
-  border-radius: 12px; padding: 12px 14px;
+  border-radius: 10px; padding: 10px 14px;
 }
 .sheets-result.is-error { color: var(--danger); background: var(--danger-soft); border-color: #E8CFC8; }
-.sheets-help { font-size: 13.5px; color: var(--muted); }
-.sheets-guide { position: sticky; top: 24px; min-width: 0; }
-.guide-steps {
-  display: flex; flex-direction: column; gap: 9px;
-  margin: 14px 0 18px; padding-left: 20px; list-style: decimal;
+.sheets-help { font-size: 13px; color: var(--muted); }
+.sheets-sync-section {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.guide-steps li { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+
+/* Collapsible guide in settings */
+.sheets-guide-accordion {
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--paper-2);
+  overflow: hidden;
+  transition: border-color var(--dur-base) ease;
+}
+.sheets-guide-accordion[open] {
+  border-color: var(--line-strong);
+}
+.sheets-guide-summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--ink);
+  padding: 12px 14px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  background: transparent;
+  transition: background var(--dur-fast) ease;
+}
+.sheets-guide-summary::-webkit-details-marker {
+  display: none;
+}
+.sheets-guide-summary:hover {
+  background: rgba(0,0,0,0.02);
+}
+.guide-toggle-icon {
+  font-size: 11px;
+  color: var(--muted);
+  transition: transform var(--dur-base) ease;
+}
+.sheets-guide-accordion[open] .guide-toggle-icon {
+  transform: rotate(180deg);
+}
+.sheets-guide-accordion .guide-body {
+  padding: 0 14px 14px 14px;
+  border-top: 1px solid var(--line);
+}
+.guide-steps {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 12px 0 14px; padding-left: 20px; list-style: decimal;
+}
+.guide-steps li { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
 .guide-steps li strong { color: var(--ink); font-weight: 600; }
 .code-block {
-  border: 1px solid var(--line-strong); border-radius: 12px;
+  border: 1px solid var(--line-strong); border-radius: 10px;
   overflow: hidden;
   background: #14211B; color: #DCEAE1;
-  /* Contain the pre's horizontal overflow within this block */
   max-width: 100%;
   min-width: 0;
 }
@@ -506,88 +565,32 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   padding: 8px 12px; font-size: 12px; font-weight: 600;
   background: rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-.code-head .link-btn { color: var(--gold-soft); }
+.code-head .link-btn { color: var(--gold-soft); font-size: 12px; }
 .code-block pre {
-  margin: 0; padding: 14px;
+  margin: 0; padding: 12px 14px;
   font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
   font-size: 11.5px; line-height: 1.55;
-  /* Scroll the code block horizontally — never expand the page */
   overflow-x: auto;
   overflow-y: auto;
-  max-height: 420px;
+  max-height: 280px;
   white-space: pre;
-  /* Prevent the pre's intrinsic min-content width from propagating up */
   min-width: 0;
 }
 
-/* --------- Google Sheets page — responsive hardening ---------- */
-/*
- * KEY FIX: Each direct child of the sheets-layout grid MUST have min-width: 0.
- * Without it, CSS grid 1fr tracks inherit the min-content size of their
- * content. The <pre> with white-space:pre has a very large min-content width
- * (length of longest code line), which forces the entire grid column wider
- * than the viewport. min-width: 0 on the grid children lets the tracks shrink.
- */
-.sheets-layout,
-.sheets-main,
-.sheet-status-card,
-.sheets-form,
-.sheets-actions,
-.sheets-guide {
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-/* Flex text children must be allowed to shrink (otherwise long text pushes
-   the card wider than the viewport). */
-.sheet-status > div { min-width: 0; }
-.status-title, .status-sub { overflow-wrap: break-word; }
-
-.sheets-form .field { min-width: 0; }
-.sheets-form .field-row { min-width: 0; }
-.sheets-form .field-row .field { min-width: 0; }
-.sheets-form input {
-  width: 100%;
-  min-width: 0;
-}
-
-.sheets-actions { min-width: 0; }
-.sheets-actions .btn { min-width: 0; }
-
-/* Small screens: stack cards, fields and buttons; reduce padding. */
 @media (max-width: 640px) {
-  #view-sheets .panel { padding: 16px; }
-  .sheets-main { gap: 14px; }
-  .sheets-layout { gap: 14px; }
-
-  /* Status card: keep icon + text on one row, let text wrap inside. */
-  .sheet-status-card { align-items: flex-start; }
-  .status-title { font-size: 16px; }
-  .status-meta { gap: 12px; }
-
-  /* Fields become a single column so inputs are full-width and never
-     overflow the card. */
-  #view-sheets .sheets-form .field-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  /* Buttons stack vertically, full width, easy to tap. */
+  .sheet-status-card-inner { align-items: flex-start; }
+  .status-title { font-size: 15px; }
+  .status-meta { gap: 10px; }
   .sheets-actions {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 8px;
   }
   .sheets-actions .btn {
     width: 100%;
     justify-content: center;
-    white-space: normal;
     text-align: center;
   }
-
-  .sheets-guide { position: static; }
-  .guide-steps { margin: 12px 0 16px; }
 }
 
 /* ---------------------------- Reports page ----------------------------- */

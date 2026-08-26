@@ -54,9 +54,7 @@
     state.filters.category = catValue;
     ui.setTypeFilterChips(state.filters.type);
 
-    if (state.view === "sheets") {
-      ui.renderSheetsPage();
-    } else if (state.view === "reports") {
+    if (state.view === "reports") {
       var reportCat = ui.populateReportCategories(all, state.reportFilters.category);
       state.reportFilters.category = reportCat;
       ui.renderReportsPage(all, state.reportFilters);
@@ -66,7 +64,7 @@
       ui.renderRecurringPage();
     } else if (state.view === "data") {
       ui.renderDataPage(all);
-    } else if (state.view === "settings") {
+    } else if (state.view === "settings" || state.view === "sheets") {
       ui.renderSettingsPage();
     } else {
       ui.renderDashboard(all);
@@ -90,12 +88,11 @@
 
   function navKeyForFilters() {
     if (state.view === "dashboard") return "dashboard";
-    if (state.view === "sheets") return "sheets";
     if (state.view === "reports") return "reports";
     if (state.view === "budgets") return "budgets";
     if (state.view === "recurring") return "recurring";
     if (state.view === "data") return "data";
-    if (state.view === "settings") return "settings";
+    if (state.view === "settings" || state.view === "sheets") return "settings";
     if (state.filters.type === "income") return "income";
     if (state.filters.type === "expense") return "expenses";
     return "transactions";
@@ -108,6 +105,18 @@
       ui.setView("settings", "settings");
       closeSidebar();
       refresh();
+      return;
+    }
+    if (view === "sheets") {
+      state.view = "settings";
+      state.navKey = "settings";
+      ui.setView("settings", "settings");
+      closeSidebar();
+      refresh();
+      setTimeout(function () {
+        var elSheets = el("settings-sheets-panel");
+        if (elSheets) elSheets.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
       return;
     }
     if (view === "data") {
@@ -143,14 +152,6 @@
       ui.setReportTypeChips(state.reportFilters.type);
       closeSidebar();
       refresh();
-      return;
-    }
-    if (view === "sheets") {
-      state.view = "sheets";
-      state.navKey = "sheets";
-      ui.setView("sheets", "sheets");
-      ui.renderSheetsPage();
-      closeSidebar();
       return;
     }
     if (view === "income") {
