@@ -190,6 +190,12 @@
 
   async function handleSubmit(e) {
     e.preventDefault();
+    var id = el("field-id").value;
+    var saveBtn = el("btn-save");
+
+    /* Prevent double-submit from Enter-key during an in-flight save */
+    if (saveBtn.disabled) return;
+
     var payload = {
       type: el("field-type").value,
       title: el("field-title").value,
@@ -206,8 +212,13 @@
       return;
     }
 
-    var id = el("field-id").value;
-    var saveBtn = el("btn-save");
+    if (!id) {
+      /* NL input may also have been the trigger — clear it now so that
+         a second submission doesn't re-read stale input. */
+      var nlInput = el("nl-input");
+      if (nlInput && nlInput.value) nlInput.value = "";
+    }
+
     var originalLabel = saveBtn.textContent;
     saveBtn.disabled = true;
     saveBtn.textContent = "Saving\u2026";
@@ -227,8 +238,6 @@
         ui.toast(payload.type === "income" ? "Income added" : "Expense added");
         attemptSync(created);
         runAlertCheck();
-        var nlInput = el("nl-input");
-        if (nlInput && nlInput.value) nlInput.value = "";
       }
     } catch (err) {
       console.error("[Ledger] Could not save transaction:", err);
@@ -281,10 +290,21 @@
     confirmDelete();
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!state.pendingDeleteId) return;
     var id = state.pendingDeleteId;
     state.pendingDeleteId = null;
+    var cloud = ET.database && ET.database.isCloudMode();
+    if (cloud) {
+      try {
+        await ET.database.deleteTransaction(id);
+      } catch (err) {
+        console.error("[Ledger] Could not delete from Supabase:", err);
+        ui.closeConfirm();
+        ui.toast("Unable to delete this transaction. Please try again.", "error");
+        return;
+      }
+    }
     var ok = expenses.removeTransaction(id);
     ui.closeConfirm();
     if (!ok) {
@@ -294,12 +314,6 @@
     refresh();
     ui.toast("Transaction deleted", "info");
     runAlertCheck();
-    if (ET.database && ET.database.isCloudMode()) {
-      ET.database.deleteTransaction(id).catch(function (err) {
-        console.error("[Ledger] Could not delete from Supabase:", err);
-        ui.toast("Deleted locally, but could not remove it from the cloud. It may return after refresh.", "error");
-      });
-    }
     if (ET.sheets.isConnected()) {
       ET.sheets.deleteRemoteTransaction(id).then(function (r) {
         if (!r.success && !r.skipped) {
@@ -1279,9 +1293,21 @@
 
     // Danger zone
     setupDangerButton("confirm-clear-tx", "btn-clear-tx", "CLEAR TRANSACTIONS", function () {
-      ET.data.clearTransactions();
-      refresh();
-      ui.toast("All transactions cleared.");
+      if (ET.database.isCloudMode()) {
+        ET.database.clearAllTransactions().then(function (r) {
+          if (r && r.ok) {
+            ET.data.clearTransactions();
+            refresh();
+            ui.toast("All transactions cleared.");
+          } else {
+            ui.toast("Unable to clear transactions. Please try again.", "error");
+          }
+        });
+      } else {
+        ET.data.clearTransactions();
+        refresh();
+        ui.toast("All transactions cleared.");
+      }
     });
     setupDangerButton("confirm-clear-test", "btn-clear-test", "CLEAR TEST DATA", function () {
       ET.data.clearTestData();
@@ -1403,9 +1429,9 @@
       })
       .catch(function (err) {
         console.error("[Ledger] cloud startup error:", err);
-        state.dataReady = true;
+        /* Keep dataReady=false so no stale cached (possibly another user's)
+           data can render behind the error screen. */
         setAddButtonsDisabled(false);
-        ui.hideViewSkeleton();
         ui.hideLoading();
         state.cloudRetry = function () { enterCloudApp(user); };
         ui.showCloudError("Unable to load your financial data. Please check your internet connection and try again.");
@@ -1468,6 +1494,10 @@
     await ET.auth.signOut();
     ET.database.setCloudMode(false);
     if (ET.notifications) ET.notifications.setVisible(false);
+    /* Clear the previous user's cached data from this browser so the next
+       user can never see it. Supabase remains the source of truth and all
+       data reloads on the next sign-in. */
+    ET.data.resetApplication();
     state.dataReady = false;
     ui.hideUserMenu();
     ui.hideMigrationScreen();
@@ -1574,6 +1604,7 @@
       if (event === "SIGNED_OUT") {
         ET.database.setCloudMode(false);
         if (ET.notifications) ET.notifications.setVisible(false);
+        ET.data.resetApplication();
         ui.hideUserMenu();
         ui.showAuthScreen();
       }

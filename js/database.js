@@ -394,7 +394,18 @@
   async function deleteTransaction(id) {
     if (!isCloudMode()) return { ok: false };
     var c = client();
-    await c.from("transactions").delete().eq("id", id);
+    var res = await c.from("transactions").delete().eq("id", id);
+    if (res.error) throw res.error;
+    return { ok: true };
+  }
+
+  async function clearAllTransactions() {
+    if (!isCloudMode()) return { ok: false };
+    var c = client();
+    var user = ET.auth && ET.auth.getUser();
+    if (!c || !user) return { ok: false, reason: "Not authenticated" };
+    var res = await c.from("transactions").delete().eq("user_id", user.id);
+    if (res.error) throw res.error;
     return { ok: true };
   }
 
@@ -416,6 +427,7 @@
     fetchUserSettings: fetchUserSettings,
     createDefaultSettings: createDefaultSettings,
     updateUserSettings: updateUserSettings,
-    deleteTransaction: deleteTransaction
+    deleteTransaction: deleteTransaction,
+    clearAllTransactions: clearAllTransactions
   };
 })(window);
