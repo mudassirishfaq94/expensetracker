@@ -206,9 +206,8 @@
           <div class="empty-illustration" aria-hidden="true">
             <svg viewBox="0 0 64 64" width="64" height="64"><rect x="8" y="16" width="48" height="34" rx="5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M8 26h48" stroke="currentColor" stroke-width="2.5"/><circle cx="17" cy="21" r="1.6" fill="currentColor"/><path d="M18 40h12M18 44h20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           </div>
-          <h2>Welcome to LedgerExpense 👋</h2>
-          <p>Let's start with something simple. What did you spend money on?</p>
-          <p class="empty-hint">Type above and hit <strong>Analyze Transaction</strong>, or add a transaction manually.</p>
+          <h2>Get started</h2>
+          <p>Type a transaction above, or add one manually. Want to see what LedgerExpense looks like with data? Load the sample profile.</p>
           <div class="empty-actions">
             <button class="btn btn-primary" data-action="open-add" type="button">Add a transaction</button>
             <button class="btn btn-ghost" data-action="load-sample" type="button">Explore with sample data</button>
@@ -253,28 +252,6 @@
 
             <article class="stat-card">
               <div class="stat-head">
-                <span class="stat-icon icon-month" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="18" height="18"><rect x="4" y="5" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3v4M16 3v4M4 11h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                </span>
-                <p class="stat-label">This month's balance</p>
-              </div>
-              <p class="stat-value" id="stat-month-balance">--</p>
-              <p class="stat-foot" id="stat-month-foot">This month</p>
-            </article>
-
-            <article class="stat-card">
-              <div class="stat-head">
-                <span class="stat-icon icon-today" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                </span>
-                <p class="stat-label">Today's spending</p>
-              </div>
-              <p class="stat-value" id="stat-today">--</p>
-              <p class="stat-foot" id="stat-today-foot">No expenses today</p>
-            </article>
-
-            <article class="stat-card">
-              <div class="stat-head">
                 <span class="stat-icon icon-count" aria-hidden="true">
                   <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                 </span>
@@ -285,86 +262,13 @@
             </article>
           </div>
 
-          <section class="panel summary-panel" aria-labelledby="summary-title">
+          <section class="panel" aria-labelledby="recent-title">
             <div class="panel-head">
-              <h2 class="panel-title" id="summary-title">Financial summary</h2>
-              <span class="panel-note" id="summary-month-note">This month</span>
+              <h2 class="panel-title" id="recent-title">Recent activity</h2>
+              <button class="link-btn" data-view-jump="transactions" type="button">View all</button>
             </div>
-            <div class="summary-grid">
-              <div class="summary-block">
-                <h3 class="summary-heading">Income vs expenses</h3>
-                <div class="summary-row">
-                  <span class="summary-label"><span class="type-sign income" aria-hidden="true">+</span> Total income</span>
-                  <span class="summary-value is-income" id="sum-income">--</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label"><span class="type-sign expense" aria-hidden="true">−</span> Total expenses</span>
-                  <span class="summary-value is-expense" id="sum-expenses">--</span>
-                </div>
-                <div class="summary-row is-total">
-                  <span class="summary-label">Net balance</span>
-                  <span class="summary-value" id="sum-balance">--</span>
-                </div>
-              </div>
-              <div class="summary-block">
-                <h3 class="summary-heading">Current month summary</h3>
-                <div class="summary-row">
-                  <span class="summary-label"><span class="type-sign income" aria-hidden="true">+</span> Income this month</span>
-                  <span class="summary-value is-income" id="sum-month-income">--</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label"><span class="type-sign expense" aria-hidden="true">−</span> Expenses this month</span>
-                  <span class="summary-value is-expense" id="sum-month-expenses">--</span>
-                </div>
-                <div class="summary-row is-total">
-                  <span class="summary-label">Remaining balance this month</span>
-                  <span class="summary-value" id="sum-month-balance">--</span>
-                </div>
-              </div>
-            </div>
+            <ul class="recent-list" id="recent-activity"></ul>
           </section>
-
-          <section class="panel budget-dash" id="dashboard-budget" aria-labelledby="dash-budget-title">
-            <div class="panel-head">
-              <h2 class="panel-title" id="dash-budget-title">Monthly budget</h2>
-              <span class="panel-note" id="dash-budget-month">This month</span>
-            </div>
-            <div id="dash-budget-body"></div>
-          </section>
-
-          <section class="panel" id="dashboard-goals" aria-labelledby="dash-goals-title">
-            <div class="panel-head">
-              <h2 class="panel-title" id="dash-goals-title">Savings goals</h2>
-              <a class="link-btn" data-view-jump="budgets" href="#">Manage</a>
-            </div>
-            <div id="dash-goals-body"></div>
-          </section>
-
-          <section class="panel" id="dashboard-upcoming" aria-labelledby="dash-upcoming-title">
-            <div class="panel-head">
-              <h2 class="panel-title" id="dash-upcoming-title">Upcoming payments</h2>
-              <a class="link-btn" data-view-jump="recurring" href="#">View All</a>
-            </div>
-            <ul class="recent-list" id="dash-upcoming-body"></ul>
-          </section>
-
-          <div class="dash-columns">
-            <section class="panel" aria-labelledby="cat-title">
-              <div class="panel-head">
-                <h2 class="panel-title" id="cat-title">Spending by category</h2>
-                <span class="panel-note" id="cat-note">This month</span>
-              </div>
-              <div class="cat-list" id="category-breakdown"></div>
-            </section>
-
-            <section class="panel" aria-labelledby="recent-title">
-              <div class="panel-head">
-                <h2 class="panel-title" id="recent-title">Recent activity</h2>
-                <button class="link-btn" data-view-jump="transactions" type="button">View all</button>
-              </div>
-              <ul class="recent-list" id="recent-activity"></ul>
-            </section>
-          </div>
         </div>
       </section>
 
@@ -824,23 +728,20 @@
             <!-- Danger zone -->
             <section class="panel danger-zone">
               <div class="panel-head"><h2 class="panel-title">Danger zone</h2><span class="panel-note">Irreversible</span></div>
-              <div class="danger-item">
+                <div class="danger-item">
                 <p class="danger-title">Clear all transactions</p>
                 <p class="budgets-hint">Removes transactions only. Budgets, goals and recurring definitions stay.</p>
-                <div class="danger-confirm"><input type="text" id="confirm-clear-tx" placeholder="Type CLEAR TRANSACTIONS" /></div>
-                <button class="btn btn-danger" id="btn-clear-tx" disabled>Clear transactions</button>
+                <button class="btn btn-danger" id="btn-clear-tx" type="button">Clear transactions</button>
               </div>
               <div class="danger-item">
                 <p class="danger-title">Clear test data</p>
                 <p class="budgets-hint">Removes transactions, budgets, goals and recurring definitions.</p>
-                <div class="danger-confirm"><input type="text" id="confirm-clear-test" placeholder="Type CLEAR TEST DATA" /></div>
-                <button class="btn btn-danger" id="btn-clear-test" disabled>Clear test data</button>
+                <button class="btn btn-danger" id="btn-clear-test" type="button">Clear test data</button>
               </div>
               <div class="danger-item">
                 <p class="danger-title">Reset application</p>
                 <p class="budgets-hint">Removes ALL application data including Google Sheets config. Returns to first-use state.</p>
-                <div class="danger-confirm"><input type="text" id="confirm-reset" placeholder="Type RESET EVERYTHING" /></div>
-                <button class="btn btn-danger" id="btn-reset" disabled>Reset application</button>
+                <button class="btn btn-danger" id="btn-reset" type="button">Reset application</button>
               </div>
             </section>
           </div>

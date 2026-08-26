@@ -366,14 +366,19 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 .link-btn:hover { color: var(--forest); text-decoration: underline; }
 
 /* --------------------------- Stat grid / hero -------------------------- */
+#dashboard-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .stat-grid {
   display: grid;
   grid-template-columns: 1.5fr 1fr 1fr;
   grid-template-areas:
     "hero income expenses"
-    "month today count";
+    "hero count .";
   gap: 16px;
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 .hero-card {
   grid-area: hero;
@@ -1508,7 +1513,6 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
     grid-template-areas:
       "hero hero"
       "income expenses"
-      "month today"
       "count count";
   }
   .dash-columns { grid-template-columns: 1fr; }
@@ -1518,7 +1522,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 
 @media (max-width: 560px) {
-  .stat-grid { grid-template-columns: 1fr; grid-template-areas: "hero" "income" "expenses" "month" "today" "count"; }
+  .stat-grid { grid-template-columns: 1fr; grid-template-areas: "hero" "income" "expenses" "count"; }
   .field-row { grid-template-columns: 1fr; }
   .toast-container { left: 16px; right: 16px; bottom: 16px; align-items: stretch; }
   .toast { max-width: none; }

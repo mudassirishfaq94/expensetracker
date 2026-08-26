@@ -1095,15 +1095,16 @@
     );
   }
 
-  function setupDangerButton(inputId, btnId, phrase, action) {
+function setupDangerButton(inputId, btnId, phrase, action) {
     var input = el(inputId);
     var btn = el(btnId);
-    if (!input || !btn) return;
-    input.addEventListener("input", function () {
-      btn.disabled = input.value.trim() !== phrase;
-    });
+    if (!btn) return;
+    /* The confirmation dialog is the safety gate. The button always works —
+       no need to type a phrase first. The old confirm input is hidden. */
+    if (input) input.hidden = true;
+    btn.disabled = false;
+    btn.removeAttribute("disabled");
     btn.addEventListener("click", function () {
-      if (input.value.trim() !== phrase) return;
       state.pendingAction = action;
       ui.openConfirm("This will " + phrase.toLowerCase().replace(/_/g, " ") + ".\n\nConsider downloading a full backup first.", "Are you sure?", "Continue");
     });
@@ -1115,10 +1116,11 @@
         goToView(btn.getAttribute("data-view"));
       });
     });
-    document.querySelectorAll("[data-view-jump]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        goToView(btn.getAttribute("data-view-jump"));
-      });
+    /* Delegated listener for [data-view-jump] — works for both static and
+       dynamically injected buttons (e.g. dashboard empty-state cards). */
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-view-jump]");
+      if (btn) { e.preventDefault(); goToView(btn.getAttribute("data-view-jump")); }
     });
 
     el("btn-add-expense").addEventListener("click", openAddDrawer);

@@ -411,12 +411,13 @@
       var wrap = el("dash-greeting");
       var line = el("dash-greeting-line");
       var sub = el("dash-greeting-sub");
-      if (!wrap || !line) return;
+      if (!wrap || !line || !sub) return;
+      wrap.hidden = false;
       if (!hasData) {
-        wrap.hidden = true;
+        line.textContent = "Welcome to LedgerExpense \uD83D\uDC4B";
+        sub.textContent = "Let's start with something simple. What did you spend money on?";
         return;
       }
-      wrap.hidden = false;
       var hour = new Date().getHours();
       var period = hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
       var months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -428,53 +429,35 @@
     renderDashboard: function (list) {
       var hasData = list.length > 0;
       this.renderGreeting(hasData);
-      el("dashboard-empty").hidden = hasData;
-      el("dashboard-content").hidden = !hasData;
+      var empty = el("dashboard-empty");
+      var content = el("dashboard-content");
+      if (empty) empty.hidden = hasData;
+      if (content) content.hidden = !hasData;
       if (!hasData) return;
 
       var s = expenses.stats(list);
 
-      el("hero-count-chip").textContent =
-        s.totalCount + (s.totalCount === 1 ? " transaction" : " transactions");
-      animateHero(el("stat-balance"), s.totalBalance);
+      var heroChip = el("hero-count-chip");
+      if (heroChip) heroChip.textContent = s.totalCount + (s.totalCount === 1 ? " transaction" : " transactions");
+      var balance = el("stat-balance");
+      if (balance) animateHero(balance, s.totalBalance);
 
-      el("stat-income").textContent = signedCurrency(s.totalIncome, "income");
-      el("stat-income-foot").textContent =
-        s.incomeCount + (s.incomeCount === 1 ? " income entry" : " income entries");
+      var income = el("stat-income");
+      if (income) income.textContent = signedCurrency(s.totalIncome, "income");
+      var incomeFoot = el("stat-income-foot");
+      if (incomeFoot) incomeFoot.textContent = s.incomeCount + (s.incomeCount === 1 ? " income entry" : " income entries");
 
-      el("stat-expenses").textContent = signedCurrency(s.totalExpenses, "expense");
-      el("stat-expenses-foot").textContent =
-        s.expenseCount + (s.expenseCount === 1 ? " expense" : " expenses");
+      var expensesEl = el("stat-expenses");
+      if (expensesEl) expensesEl.textContent = signedCurrency(s.totalExpenses, "expense");
+      var expensesFoot = el("stat-expenses-foot");
+      if (expensesFoot) expensesFoot.textContent = s.expenseCount + (s.expenseCount === 1 ? " expense" : " expenses");
 
-      var monthBalanceNode = el("stat-month-balance");
-      monthBalanceNode.textContent = formatCurrency(s.monthBalance);
-      monthBalanceNode.classList.toggle("is-income", s.monthBalance > 0);
-      monthBalanceNode.classList.toggle("is-expense", s.monthBalance < 0);
-      el("stat-month-foot").textContent = s.monthLabel;
-
-      el("stat-today").textContent = formatCurrency(s.todaySpending);
-      el("stat-today-foot").textContent = s.todayCount === 0
-        ? "No expenses today"
-        : s.todayCount + (s.todayCount === 1 ? " expense today" : " expenses today");
-
-      el("stat-count").textContent = String(s.totalCount);
-      el("stat-count-foot").textContent =
-        s.incomeCount + " income · " + s.expenseCount + " expenses";
-
-      el("summary-month-note").textContent = s.monthLabel;
-      el("sum-income").textContent = formatCurrency(s.totalIncome);
-      el("sum-expenses").textContent = formatCurrency(s.totalExpenses);
-      el("sum-balance").textContent = formatCurrency(s.totalBalance);
-      el("sum-balance").classList.toggle("is-income", s.totalBalance > 0);
-      el("sum-balance").classList.toggle("is-expense", s.totalBalance < 0);
-      el("sum-month-income").textContent = formatCurrency(s.monthIncome);
-      el("sum-month-expenses").textContent = formatCurrency(s.monthExpenses);
-      el("sum-month-balance").textContent = formatCurrency(s.monthBalance);
-      el("sum-month-balance").classList.toggle("is-income", s.monthBalance > 0);
-      el("sum-month-balance").classList.toggle("is-expense", s.monthBalance < 0);
+      var count = el("stat-count");
+      if (count) count.textContent = String(s.totalCount);
+      var countFoot = el("stat-count-foot");
+      if (countFoot) countFoot.textContent = s.incomeCount + " income · " + s.expenseCount + " expenses";
 
       this.renderHeroBreakdown(list);
-      this.renderCategoryBreakdown(list, s);
       this.renderRecent(list);
     },
 
@@ -500,8 +483,10 @@
 
     renderCategoryBreakdown: function (list, s) {
       var container = el("category-breakdown");
+      if (!container) return;
       var rows = expenses.spendingByCategory(list);
-      el("cat-note").textContent = s.monthLabel;
+      var note = el("cat-note");
+      if (note) note.textContent = s.monthLabel;
 
       if (rows.length === 0) {
         container.innerHTML =
