@@ -43,7 +43,9 @@ const SHELL_ASSETS = [
   "/icons/icon-maskable-512.png",
   "/icons/apple-touch-icon.png",
   "/icons/favicon-32.png",
-  "/icons/favicon-16.png"
+  "/icons/favicon-16.png",
+  "/images/logo.png",
+  "/images/sitelogo.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -92,7 +94,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   /* Static assets: stale-while-revalidate. */
-  if (url.pathname.startsWith("/css/") || url.pathname.startsWith("/js/") || url.pathname.startsWith("/icons/") || url.pathname.endsWith(".webmanifest")) {
+  if (url.pathname.startsWith("/css/") || url.pathname.startsWith("/js/") || url.pathname.startsWith("/icons/") || url.pathname.startsWith("/images/") || url.pathname.endsWith(".webmanifest")) {
     event.respondWith(
       caches.match(req).then((cached) => {
         const fetchPromise = fetch(req)

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Ledger — Personal Finance Tracker</title>
+  <title>Ledger Expense — Personal Finance Tracker</title>
   <meta name="description" content="A calm, local-first income and expense tracker." />
 
   <!-- PWA / app metadata -->
@@ -15,8 +15,8 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Ledger" />
-  <meta name="application-name" content="Ledger" />
+  <meta name="apple-mobile-web-app-title" content="Ledger Expense" />
+  <meta name="application-name" content="Ledger Expense" />
 
   <!-- Fonts: Fraunces (display, used sparingly) + Plus Jakarta Sans (UI/body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -35,7 +35,8 @@
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
     <span class="mobile-brand">
-      <span class="brand-mark" aria-hidden="true">L</span> Ledger
+      <img src="images/sitelogo.png" class="mobile-logo" alt="" />
+      <span class="mobile-brand-text">Ledger Expense</span>
     </span>
     <button id="btn-notif-mobile" class="icon-btn notif-btn" type="button" aria-label="Notifications" aria-expanded="false" title="Notifications" hidden>
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -50,8 +51,7 @@
     <!-- ============ SIDEBAR ============ -->
     <aside class="sidebar" id="sidebar" aria-label="Primary">
       <div class="sidebar-brand">
-        <span class="brand-mark" aria-hidden="true">L</span>
-        <span class="brand-text">Ledger</span>
+        <img src="images/logo.png" class="sidebar-logo" alt="Ledger Expense" />
       </div>
 
       <nav class="nav" aria-label="Sections">
@@ -921,7 +921,7 @@
                 <div class="storage-row"><span class="storage-label">Email</span><span class="storage-value" id="settings-email">—</span></div>
               </div>
               <div class="data-actions">
-                <button class="btn btn-primary" id="btn-install-pwa" type="button" hidden>Install Ledger</button>
+                <button class="btn btn-primary" id="btn-install-pwa" type="button" hidden>Install Ledger Expense</button>
                 <button class="btn btn-ghost" id="btn-settings-logout" type="button">Log out</button>
               </div>
             </section>
@@ -970,7 +970,7 @@
 
   <!-- New app version available -->
   <div class="conn-banner is-update" id="pwa-update-bar" hidden>
-    <span id="conn-update-text">A new version of Ledger is available.</span>
+    <span id="conn-update-text">A new version of Ledger Expense is available.</span>
     <button class="btn btn-sm" id="btn-pwa-update" type="button">Refresh</button>
   </div>
 
@@ -1196,10 +1196,7 @@
   <div class="auth-screen" id="auth-screen" hidden>
     <div class="auth-card">
       <div class="auth-brand">
-        <span class="auth-logo" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </span>
-        <h1 class="auth-title">Ledger</h1>
+        <img src="images/logo.png" class="auth-logo-img" alt="Ledger Expense" />
         <p class="auth-sub">Your personal finance tracker</p>
       </div>
 

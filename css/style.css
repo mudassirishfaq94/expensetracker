@@ -91,8 +91,13 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   z-index: 40;
 }
 .sidebar-brand {
-  display: flex; align-items: center; gap: 12px;
-  padding: 6px 10px 22px;
+  display: flex; align-items: center;
+  padding: 10px 14px 20px;
+}
+.sidebar-logo {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 .brand-mark {
   display: grid; place-items: center;
@@ -174,8 +179,9 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   color: #fff;
   position: sticky; top: 0; z-index: 30;
 }
-.mobile-brand { display: flex; align-items: center; gap: 10px; font-family: "Fraunces", serif; font-size: 18px; font-weight: 600; }
-.mobile-brand .brand-mark { width: 28px; height: 28px; font-size: 16px; border-radius: 8px; }
+.mobile-brand { display: flex; align-items: center; gap: 10px; font-family: "Fraunces", serif; font-size: 18px; font-weight: 600; min-width: 0; }
+.mobile-logo { height: 30px; width: auto; flex-shrink: 0; }
+.mobile-brand-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* ------------------------------- Main ---------------------------------- */
 .main { flex: 1; min-width: 0; padding: 30px clamp(18px, 4vw, 44px) 64px; }
@@ -796,12 +802,14 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   padding: 28px;
 }
 .auth-card-centered { text-align: center; }
-.auth-brand { text-align: center; margin-bottom: 20px; }
-.auth-logo {
-  display: inline-grid; place-items: center;
-  width: 52px; height: 52px; border-radius: 14px;
-  background: linear-gradient(160deg, var(--forest-600), var(--forest));
-  color: var(--gold-soft); margin-bottom: 10px;
+.auth-brand { text-align: center; margin-bottom: 16px; }
+.auth-logo { ... } /* legacy — kept for compatibility, not used */
+.auth-logo-img {
+  display: block;
+  max-width: 240px;
+  height: auto;
+  margin: 0 auto 5px;
+  border-radius: 8px;
 }
 .auth-title { font-family: "Fraunces", serif; font-size: 26px; font-weight: 700; color: var(--ink); }
 .auth-sub { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
@@ -1451,6 +1459,8 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 
 @media (max-width: 560px) {
+  .mobile-brand { gap: 8px; font-size: 15px; }
+  .mobile-brand .brand-mark { width: 26px; height: 26px; font-size: 15px; }
   .notif-panel { top: 60px; right: 12px; }
 }
 
