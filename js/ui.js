@@ -477,7 +477,7 @@
 
       actions.appendChild(addManualBtn);
       actions.appendChild(loadSampleBtn);
-    }
+    },
 
     renderDashboard: function (list) {
       var hasData = list.length > 0;
