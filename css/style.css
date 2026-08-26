@@ -509,6 +509,67 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   white-space: pre;
 }
 
+/* --------- Google Sheets page — responsive hardening (Part 13B) ---------- */
+.sheets-layout,
+.sheets-main,
+.sheet-status-card,
+.sheets-form,
+.sheets-actions,
+.sheets-guide {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Flex text children must be allowed to shrink (otherwise long text pushes
+   the card wider than the viewport). */
+.sheet-status > div { min-width: 0; }
+.status-title, .status-sub { overflow-wrap: break-word; }
+
+.sheets-form .field { min-width: 0; }
+.sheets-form .field-row { min-width: 0; }
+.sheets-form .field-row .field { min-width: 0; }
+.sheets-form input {
+  width: 100%;
+  min-width: 0;
+}
+
+.sheets-actions { min-width: 0; }
+.sheets-actions .btn { min-width: 0; }
+
+/* Small screens: stack cards, fields and buttons; reduce padding. */
+@media (max-width: 640px) {
+  #view-sheets .panel { padding: 16px; }
+  .sheets-main { gap: 14px; }
+  .sheets-layout { gap: 14px; }
+
+  /* Status card: keep icon + text on one row, let text wrap inside. */
+  .sheet-status-card { align-items: flex-start; }
+  .status-title { font-size: 16px; }
+  .status-meta { gap: 12px; }
+
+  /* Fields become a single column so inputs are full-width and never
+     overflow the card. */
+  #view-sheets .sheets-form .field-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* Buttons stack vertically, full width, easy to tap. */
+  .sheets-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .sheets-actions .btn {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+  }
+
+  .sheets-guide { position: static; }
+  .guide-steps { margin: 12px 0 16px; }
+}
+
 /* ---------------------------- Reports page ----------------------------- */
 .report-filters {
   display: flex; flex-direction: column; gap: 12px;
