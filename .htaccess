@@ -1,0 +1,52 @@
+# =========================================================================
+# Ledger Expense — production Apache/LiteSpeed configuration (Hostinger)
+# Enable compression, correct MIME types, and sensible caching. HTML is kept
+# revalidating so the service worker always picks up new releases.
+# =========================================================================
+
+# --- Correct MIME types ------------------------------------------------
+AddType application/manifest+json .webmanifest
+AddType image/x-icon .ico
+AddType image/svg+xml .svg
+
+# --- Compression -------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE application/manifest+json
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# --- Caching -----------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Long-lived media
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+
+  # App assets — the service worker revalidates these in the background
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+
+  # Manifest re-checked regularly
+  ExpiresByType application/manifest+json "access plus 1 day"
+</IfModule>
+
+# HTML must always be revalidated so a new deploy is picked up quickly
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|webmanifest)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# --- Force HTTPS --------------------------------------------------------
+# Enable this AFTER the SSL certificate is active for the subdomain in
+# hPanel (Domains → subdomain → SSL). Keep it commented if SSL is not yet
+# installed, otherwise the site may redirect into a loop.
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteCond %{HTTPS} off
+#   RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+# </IfModule>
