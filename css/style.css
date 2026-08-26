@@ -1239,6 +1239,20 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 
 /* ---------------------------- Loading skeletons ------------------------- */
+.skel-layer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--sidebar-w);
+  z-index: 20;
+  background: var(--canvas);
+  padding: 30px clamp(18px, 4vw, 44px) 64px;
+  overflow-y: auto;
+}
+@media (max-width: 900px) {
+  .skel-layer { left: 0; }
+}
 .skel {
   position: relative;
   overflow: hidden;

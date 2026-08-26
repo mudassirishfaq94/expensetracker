@@ -37,7 +37,9 @@
   function refresh(opts) {
     opts = opts || {};
 
-    if (!state.dataReady) {
+    if (state.dataReady) {
+      ui.hideViewSkeleton();
+    } else {
       ui.showViewSkeleton(state.view);
       return;
     }
@@ -1403,6 +1405,7 @@
         console.error("[Ledger] cloud startup error:", err);
         state.dataReady = true;
         setAddButtonsDisabled(false);
+        ui.hideViewSkeleton();
         ui.hideLoading();
         state.cloudRetry = function () { enterCloudApp(user); };
         ui.showCloudError("Unable to load your financial data. Please check your internet connection and try again.");

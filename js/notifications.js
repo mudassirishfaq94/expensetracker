@@ -17,6 +17,20 @@
   function currentUser() { return ET.auth && ET.auth.getUser(); }
 
   var MAX_NOTIFICATIONS = 100;
+  var _available = true;
+
+  function tableMissingError(res) {
+    return res && (res.code === "PGRST205" || (res.message && res.message.indexOf("Could not find the table") !== -1));
+  }
+
+  /**
+   * Mark the notifications feature unavailable (e.g. the table has not been
+   * created yet) and hide the bell so nothing misleading is shown.
+   */
+  function markUnavailable() {
+    _available = false;
+    setVisible(false);
+  }
 
   /* --------------------------- dedupe key helpers ----------------------- */
 
@@ -49,6 +63,7 @@
       .order("created_at", { ascending: false })
       .limit(MAX_NOTIFICATIONS);
     if (res.error) {
+      if (tableMissingError(res.error)) markUnavailable();
       console.error("[Ledger] Could not load notifications:", res.error);
       return [];
     }
@@ -140,7 +155,10 @@
       .eq("user_id", user.id)
       .not("dedupe_key", "is", null)
       .limit(300);
-    if (res.error) return new Set();
+    if (res.error) {
+      if (tableMissingError(res.error)) markUnavailable();
+      return new Set();
+    }
     var keys = new Set();
     (res.data || []).forEach(function (r) { if (r.dedupe_key) keys.add(r.dedupe_key); });
     return keys;
@@ -157,7 +175,7 @@
    */
   var _checkInFlight = false;
   async function checkFinancialAlerts() {
-    if (!isCloud()) return 0;
+    if (!isCloud() || !_available) return 0;
     /* Prevent concurrent checks from racing the dedupe lookup and inserting
        the same notification twice. */
     if (_checkInFlight) return 0;

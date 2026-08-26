@@ -272,33 +272,23 @@
       return this.skelCard(4);
     },
     /**
-     * Render skeleton placeholders for a view's main containers.
-     * Called while data is still loading so the app never flashes an empty
-     * state or "0" figures before real data arrives.
+     * Render skeleton placeholders over the current view while data loads.
+     * Uses a dedicated overlay so the real DOM structure is never touched —
+     * the actual content is revealed once data is ready.
      */
     showViewSkeleton: function (view) {
-      var targets = {
-        dashboard: ["dashboard-content"],
-        transactions: ["expense-list-container"],
-        reports: ["reports-content"],
-        budgets: ["monthly-budget-status", "category-budget-list", "goals-list"],
-        recurring: ["upcoming-payments", "recurring-list"]
-      };
-      var ids = targets[view] || [];
-      var html = this.skeletonViewHTML(view);
-      if (view === "dashboard" && el("dashboard-empty")) el("dashboard-empty").hidden = true;
-      if (view === "transactions") {
-        if (el("expenses-empty")) el("expenses-empty").hidden = true;
-        if (el("expenses-no-results")) el("expenses-no-results").hidden = true;
-      }
-      if (view === "reports" && el("reports-empty")) el("reports-empty").hidden = true;
-      if (view === "budgets") {
-        if (el("goals-empty")) el("goals-empty").hidden = true;
-      }
-      ids.forEach(function (id) {
-        var node = el(id);
-        if (node) node.innerHTML = html;
-      });
+      var layer = el("skeleton-layer");
+      if (!layer) return;
+      layer.innerHTML = '<div class="skel-view">' + this.skeletonViewHTML(view) + "</div>";
+      layer.hidden = false;
+    },
+
+    /**
+     * Hide the skeleton overlay.
+     */
+    hideViewSkeleton: function () {
+      var layer = el("skeleton-layer");
+      if (layer) layer.hidden = true;
     },
 
     /**
@@ -1794,6 +1784,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("loading-screen").hidden = true;
       el("migration-screen").hidden = true;
       el("cloud-error-screen").hidden = true;
+      this.hideViewSkeleton();
       this.showAuthView("login");
       this.updateLocalModeCard();
     },
@@ -1843,6 +1834,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("migration-screen").hidden = false;
       el("loading-screen").hidden = true;
       el("cloud-error-screen").hidden = true;
+      this.hideViewSkeleton();
       var info = migration.preview();
       var box = el("migration-preview");
       box.innerHTML =
@@ -1864,6 +1856,7 @@ openConfirm: function (message, title, confirmLabel) {
       el("cloud-error-screen").hidden = false;
       el("loading-screen").hidden = true;
       el("migration-screen").hidden = true;
+      this.hideViewSkeleton();
     },
 
     hideCloudError: function () {
