@@ -414,8 +414,8 @@
       if (!wrap || !line || !sub) return;
       wrap.hidden = false;
       if (!hasData) {
-        line.textContent = "Welcome to LedgerExpense \uD83D\uDC4B";
-        sub.textContent = "Let's start with something simple. What did you spend money on?";
+        line.textContent = "Welcome to LedgerExpense";
+        sub.textContent = "Start by telling LedgerExpense what you spent or earned.";
         return;
       }
       var hour = new Date().getHours();
@@ -426,39 +426,119 @@
       sub.textContent = "Here's what's happening with your money this " + months[now.getMonth()].toLowerCase() + ".";
     },
 
+    renderOnboardingActions: function () {
+      // Create or update the onboarding actions container below the smart panel
+      var smartPanel = document.querySelector(".smart-panel");
+      if (!smartPanel) return;
+
+      // Check if actions container already exists
+      var existing = el("onboarding-actions");
+      if (existing) {
+        // Update existing container
+        existing.innerHTML = ''; // Clear previous content
+      } else {
+        // Create new container
+        var container = document.createElement("div");
+        container.id = "onboarding-actions";
+        container.className = "onboarding-actions";
+        // Insert after smart panel
+        smartPanel.parentNode.insertBefore(container, smartPanel.nextSibling);
+      }
+
+      var actions = el("onboarding-actions");
+      if (!actions) return;
+
+      actions.style.display = "flex";
+      actions.style.gap = "10px";
+      actions.style.flexWrap = "wrap";
+      actions.style.justifyContent = "center";
+      actions.style.marginTop = "22px";
+
+      // Add manually button
+      var addManualBtn = document.createElement("button");
+      addManualBtn.className = "btn btn-ghost";
+      addManualBtn.type = "button";
+      addManualBtn.textContent = "Add manually";
+      addManualBtn.addEventListener("click", function () {
+        // Trigger the manual add flow
+        var addInput = el("nl-input");
+        addInput.value = ""; // Clear any NL input
+        app.openAddDrawer();
+      });
+
+      // Load sample data button
+      var loadSampleBtn = document.createElement("button");
+      loadSampleBtn.className = "btn btn-primary";
+      loadSampleBtn.type = "button";
+      loadSampleBtn.textContent = "Explore with Sample Data";
+      loadSampleBtn.addEventListener("click", function () {
+        app.loadSamples();
+      });
+
+      actions.appendChild(addManualBtn);
+      actions.appendChild(loadSampleBtn);
+    }
+
     renderDashboard: function (list) {
       var hasData = list.length > 0;
-      this.renderGreeting(hasData);
-      var empty = el("dashboard-empty");
-      var content = el("dashboard-content");
-      if (empty) empty.hidden = hasData;
-      if (content) content.hidden = !hasData;
-      if (!hasData) return;
+      
+      if (hasData) {
+        // Existing behavior: show full dashboard when user has data
+        this.renderGreeting(hasData);
+        var empty = el("dashboard-empty");
+        var content = el("dashboard-content");
+        if (empty) empty.hidden = hasData;
+        if (content) content.hidden = !hasData;
+        
+        var s = expenses.stats(list);
 
-      var s = expenses.stats(list);
+        var heroChip = el("hero-count-chip");
+        if (heroChip) heroChip.textContent = s.totalCount + (s.totalCount === 1 ? " transaction" : " transactions");
+        var balance = el("stat-balance");
+        if (balance) animateHero(balance, s.totalBalance);
 
-      var heroChip = el("hero-count-chip");
-      if (heroChip) heroChip.textContent = s.totalCount + (s.totalCount === 1 ? " transaction" : " transactions");
-      var balance = el("stat-balance");
-      if (balance) animateHero(balance, s.totalBalance);
+        var income = el("stat-income");
+        if (income) income.textContent = signedCurrency(s.totalIncome, "income");
+        var incomeFoot = el("stat-income-foot");
+        if (incomeFoot) incomeFoot.textContent = s.incomeCount + (s.incomeCount === 1 ? " income entry" : " income entries");
 
-      var income = el("stat-income");
-      if (income) income.textContent = signedCurrency(s.totalIncome, "income");
-      var incomeFoot = el("stat-income-foot");
-      if (incomeFoot) incomeFoot.textContent = s.incomeCount + (s.incomeCount === 1 ? " income entry" : " income entries");
+        var expensesEl = el("stat-expenses");
+        if (expensesEl) expensesEl.textContent = signedCurrency(s.totalExpenses, "expense");
+        var expensesFoot = el("stat-expenses-foot");
+        if (expensesFoot) expensesFoot.textContent = s.expenseCount + (s.expenseCount === 1 ? " expense" : " expenses");
 
-      var expensesEl = el("stat-expenses");
-      if (expensesEl) expensesEl.textContent = signedCurrency(s.totalExpenses, "expense");
-      var expensesFoot = el("stat-expenses-foot");
-      if (expensesFoot) expensesFoot.textContent = s.expenseCount + (s.expenseCount === 1 ? " expense" : " expenses");
+        var count = el("stat-count");
+        if (count) count.textContent = String(s.totalCount);
+        var countFoot = el("stat-count-foot");
+        if (countFoot) countFoot.textContent = s.incomeCount + " income · " + s.expenseCount + " expenses";
 
-      var count = el("stat-count");
-      if (count) count.textContent = String(s.totalCount);
-      var countFoot = el("stat-count-foot");
-      if (countFoot) countFoot.textContent = s.incomeCount + " income · " + s.expenseCount + " expenses";
-
-      this.renderHeroBreakdown(list);
-      this.renderRecent(list);
+        this.renderHeroBreakdown(list);
+        this.renderRecent(list);
+      } else {
+        // New user onboarding state: show welcome + NL input + examples + secondary actions
+        this.renderGreeting(false);
+        var empty = el("dashboard-empty");
+        var content = el("dashboard-content");
+        if (empty) empty.hidden = true;  // Hide the old "Get started" empty state
+        if (content) content.hidden = true; // Hide stats/recent area
+        
+        // Show onboarding UI: update greeting to welcome message
+        var wrap = el("dash-greeting");
+        var line = el("dash-greeting-line");
+        var sub = el("dash-greeting-sub");
+        if (wrap && line && sub) {
+          wrap.hidden = false;
+          line.textContent = "Welcome to LedgerExpense";
+          sub.textContent = "Start by telling LedgerExpense what you spent or earned.";
+        }
+        
+        // Ensure smart panel (NL input) is visible
+        var smartPanel = document.querySelector(".smart-panel");
+        if (smartPanel) smartPanel.hidden = false;
+        
+        // Add secondary actions below the smart panel
+        this.renderOnboardingActions();
+      }
     },
 
     renderHeroBreakdown: function (list) {
