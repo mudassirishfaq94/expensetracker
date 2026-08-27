@@ -513,13 +513,15 @@
         this.renderHeroBreakdown(list);
         this.renderRecent(list);
       } else {
-        // New user onboarding state: show welcome + NL input + examples + secondary actions
+        // New user empty dashboard: show balanced content instead of blank space
         this.renderGreeting(false);
         var empty = el("dashboard-empty");
         var content = el("dashboard-content");
-        if (empty) empty.hidden = true;  // Hide the old "Get started" empty state
-        if (content) content.hidden = true; // Hide stats/recent area
-        
+        var emptyContent = el("dashboard-empty-content");
+        if (empty) empty.hidden = true;
+        if (content) content.hidden = true;
+        if (emptyContent) emptyContent.hidden = false;
+
         // Show onboarding UI: update greeting to welcome message
         var wrap = el("dash-greeting");
         var line = el("dash-greeting-line");
@@ -529,11 +531,11 @@
           line.textContent = "Welcome to LedgerExpense";
           sub.textContent = "Start by telling LedgerExpense what you spent or earned.";
         }
-        
+
         // Ensure smart panel (NL input) is visible
         var smartPanel = document.querySelector(".smart-panel");
         if (smartPanel) smartPanel.hidden = false;
-        
+
         // Add secondary actions below the smart panel
         this.renderOnboardingActions();
       }
