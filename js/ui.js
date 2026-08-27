@@ -1862,6 +1862,16 @@ openConfirm: function (message, title, confirmLabel) {
         var step = el("import-wizard-step-" + i);
         if (step) step.classList.toggle("hidden", i !== n);
       }
+      // Hide the upload zone + file button once we move past step 1
+      var dz = el("import-drop-zone");
+      var lbl = el("import-file-label");
+      if (n === 1) {
+        if (dz) dz.classList.remove("hidden");
+        if (lbl) lbl.classList.remove("hidden");
+      } else {
+        if (dz) dz.classList.add("hidden");
+        if (lbl) lbl.classList.add("hidden");
+      }
     },
 
     showImportUploadZone: function () {
