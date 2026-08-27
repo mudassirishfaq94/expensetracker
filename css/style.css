@@ -262,6 +262,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   background: linear-gradient(160deg, var(--paper) 0%, var(--paper-2) 100%);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
+  margin-top: 16px;
   margin-bottom: 22px;
 }
 .dash-empty-hero .dash-empty-title {
