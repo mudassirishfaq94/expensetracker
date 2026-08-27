@@ -460,19 +460,17 @@
       addManualBtn.type = "button";
       addManualBtn.textContent = "Add manually";
       addManualBtn.addEventListener("click", function () {
-        // Trigger the manual add flow
         var addInput = el("nl-input");
-        addInput.value = ""; // Clear any NL input
-        app.openAddDrawer();
+        addInput.value = "";
+        ET.app.openAddDrawer();
       });
 
-      // Load sample data button
       var loadSampleBtn = document.createElement("button");
       loadSampleBtn.className = "btn btn-primary";
       loadSampleBtn.type = "button";
       loadSampleBtn.textContent = "Explore with Sample Data";
       loadSampleBtn.addEventListener("click", function () {
-        app.loadSamples();
+        ET.app.loadSamples();
       });
 
       actions.appendChild(addManualBtn);
@@ -1795,21 +1793,44 @@ openConfirm: function (message, title, confirmLabel) {
     renderImportMapping: function (headerRow, indices) {
       var box = el("import-mapping");
       if (!box) return;
-      box.hidden = false;
-      var fields = ["date", "title", "amount", "type", "category", "vendor", "notes"];
-      var labels = { date: "Transaction date *", title: "Title", amount: "Amount *", type: "Type", category: "Category", vendor: "Vendor / source", notes: "Notes" };
-      var html = '<h3 class="budget-section-title" style="margin:10px 0 8px">Map CSV columns</h3><div class="field-row">';
+      var fields = ["date", "title", "amount", "debit", "credit", "type", "category", "vendor", "notes", "currency"];
+      var labels = {
+        date: "Transaction date *",
+        title: "Description",
+        amount: "Amount",
+        debit: "Debit / Withdrawal",
+        credit: "Credit / Deposit",
+        type: "Type",
+        category: "Category",
+        vendor: "Vendor / source",
+        notes: "Notes",
+        currency: "Currency"
+      };
+      var help = {
+        date: "Required. Column containing the transaction date.",
+        title: "Optional. Falls back to vendor or notes.",
+        amount: "Required if no Debit/Credit. Can be negative for outflows.",
+        debit: "Required if no Amount. Outflows only.",
+        credit: "Required if no Amount. Inflows only.",
+        type: "Optional. Falls back to Amount sign or your default type.",
+        category: "Optional. We will auto-categorize when missing.",
+        vendor: "Optional. Helps with smart categorization.",
+        notes: "Optional. Free-form text.",
+        currency: "Optional. Defaults to your account currency."
+      };
+      var html = '<div class="field-row import-mapping-grid">';
       fields.forEach(function (f) {
-        html += '<div class="field"><label for="map-' + f + '">' + labels[f] + "</label><select id=\"map-" + f + "\">";
-        html += '<option value="-1">— ignore —</option>';
-        headerRow.forEach(function (h, i) {
-          html += '<option value="' + i + '">' + esc(h) + "</option>";
-        });
-        html += "</select></div>";
+        var required = f === "date" || f === "amount";
+        html += '<div class="field">' +
+          '<label for="map-' + f + '">' + labels[f] + (required ? ' <span class="req">*</span>' : "") + '</label>' +
+          '<select id="map-' + f + '">' +
+          '<option value="-1">— ignore —</option>' +
+          headerRow.map(function (h, i) { return '<option value="' + i + '">' + esc(String(h || "Column " + (i + 1))) + '</option>'; }).join("") +
+          '</select>' +
+          (help[f] ? '<p class="field-help">' + help[f] + '</p>' : '') +
+          '</div>';
       });
-      html += '<div class="field"><label for="import-default-type">Default type (if missing)</label>' +
-        '<select id="import-default-type"><option value="expense">Expense</option><option value="income">Income</option></select></div>';
-      html += "</div>";
+      html += '</div>';
       box.innerHTML = html;
       fields.forEach(function (f) {
         var idx = indices[f];
@@ -1820,7 +1841,7 @@ openConfirm: function (message, title, confirmLabel) {
     },
 
     readImportMapping: function () {
-      var fields = ["date", "title", "amount", "type", "category", "vendor", "notes"];
+      var fields = ["date", "title", "amount", "debit", "credit", "type", "category", "vendor", "notes", "currency"];
       var mapping = {};
       fields.forEach(function (f) {
         var sel = document.getElementById("map-" + f);
@@ -1829,43 +1850,159 @@ openConfirm: function (message, title, confirmLabel) {
       return mapping;
     },
 
-    renderImportPreview: function (preview, candidates, filename) {
-      var box = el("import-preview");
-      if (!box) return;
-      box.hidden = false;
+    setImportStep: function (n) {
+      document.querySelectorAll(".import-wizard-step-indicator .step").forEach(function (s) {
+        var sn = Number(s.getAttribute("data-step"));
+        s.classList.toggle("active", sn === n);
+        s.classList.toggle("done", sn < n);
+      });
+      for (var i = 1; i <= 4; i++) {
+        var step = el("import-wizard-step-" + i);
+        if (step) step.classList.toggle("hidden", i !== n);
+      }
+    },
+
+    showImportUploadZone: function () {
+      var dz = el("import-drop-zone");
+      var lbl = el("import-file-label");
+      var err = el("import-error");
+      if (dz) dz.classList.remove("hidden");
+      if (lbl) lbl.classList.add("hidden");
+      if (err) err.classList.add("hidden");
+      this.setImportStep(1);
+    },
+
+    showImportError: function (message) {
+      var err = el("import-error");
+      if (!err) return;
+      err.textContent = message;
+      err.classList.remove("hidden");
+      this.setImportStep(1);
+      var dz = el("import-drop-zone");
+      var lbl = el("import-file-label");
+      if (dz) dz.classList.add("hidden");
+      if (lbl) lbl.classList.remove("hidden");
+    },
+
+    renderImportPreview: function (preview, candidates, filename, page, perPage) {
+      page = page || 0;
+      perPage = perPage || 25;
+      var total = preview.total;
       var valid = preview.valid, invalid = preview.invalid, duplicates = preview.duplicates;
-      var html = '<h3 class="budget-section-title" style="margin:10px 0 6px">Import preview</h3>';
-      html += '<p class="budgets-hint">' + esc(filename || "Imported file") + " &middot; " + preview.total + " row(s) detected.</p>";
-      if (!valid.length && !invalid.length && !duplicates.length) {
-        html += '<p class="budgets-hint">No importable rows found.</p>';
+      var ready = valid.length, needsReview = invalid.length, dup = duplicates.length;
+      var det = el("import-file-detected");
+      if (det) det.textContent = (filename || "Imported file") + " · " + total + " row(s) detected.";
+
+      var vs = el("import-valid-summary");
+      var is = el("import-invalid-summary");
+      var ds = el("import-duplicate-summary");
+      var sArea = el("import-summary-area");
+      if (sArea) sArea.classList.remove("hidden");
+      if (vs) { vs.textContent = "Ready: " + ready; vs.classList.remove("hidden"); }
+      if (is) { is.textContent = "Needs review: " + needsReview; is.classList.toggle("hidden", needsReview === 0); }
+      if (ds) { ds.textContent = "Duplicates: " + dup; ds.classList.toggle("hidden", dup === 0); }
+
+      var body = el("import-table-body");
+      var table = el("import-table");
+      var wrap = el("import-table-wrap");
+      if (!body || !table || !wrap) return;
+
+      if (total === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="import-more">No importable rows found.</td></tr>';
+        var pg = el("import-pagination"); if (pg) pg.innerHTML = "";
+        return;
       }
-      if (valid.length) {
-        html += '<div class="import-summary is-ok">Valid: ' + valid.length + "</div>";
-        html += '<div class="import-table-wrap"><table class="import-table"><thead><tr><th>#</th><th>Date</th><th>Title</th><th>Type</th><th>Category</th><th>Amount</th></tr></thead><tbody>';
-        valid.slice(0, 15).forEach(function (c) {
-          var d = c.data;
-          html += "<tr><td>" + c.rowIndex + "</td><td>" + esc(formatDate(d.date)) + "</td><td>" + esc(d.title) + "</td><td>" + esc(d.type === "income" ? "Income" : "Expense") + "</td><td>" + esc(d.category) + "</td><td>" + formatCurrency(d.amount) + "</td></tr>";
-        });
-        if (valid.length > 15) html += '<tr><td colspan="6" class="import-more">… and ' + (valid.length - 15) + " more</td></tr>";
-        html += "</tbody></table></div>";
+
+      var all = []
+        .concat(valid.map(function (c) { c._bucket = "valid"; return c; }))
+        .concat(invalid.map(function (c) { c._bucket = "invalid"; return c; }))
+        .concat(duplicates.map(function (c) { c._bucket = "duplicate"; return c; }));
+
+      var start = page * perPage;
+      var end = Math.min(start + perPage, all.length);
+      var slice = all.slice(start, end);
+
+      var html = "";
+      slice.forEach(function (c) {
+        var d = c.data || {};
+        var isInvalid = c._bucket === "invalid" || (c.errors && c.errors.length);
+        var isDup = c._bucket === "duplicate" || c.skip;
+        var rowClass = isInvalid ? "row-flag" : (isDup ? "row-dup" : "");
+        var badge = isInvalid ? '<span class="flag-badge">⚠ ' + esc(c.errors.join("; ")) + '</span>'
+                  : isDup ? '<span class="dup-badge">Possible duplicate</span>' : '';
+        var action = isInvalid || isDup
+          ? '<button class="row-action" data-row-skip="' + c.rowIndex + '">Exclude</button>'
+          : '<button class="row-action" data-row-include="' + c.rowIndex + '">Edit</button>';
+        var typeLabel = d.type === "income" ? "Income" : "Expense";
+        var sign = d.type === "income" ? "+" : "-";
+        var amt = d.amount != null ? sign + formatCurrency(Math.abs(Number(d.amount))) : "—";
+        html += "<tr class=\"" + rowClass + "\" data-row=\"" + c.rowIndex + "\">" +
+          '<td data-label="#">' + badge + c.rowIndex + "</td>" +
+          '<td data-label="Date">' + esc(d.date ? formatDate(d.date) : "—") + "</td>" +
+          '<td data-label="Description">' + esc(d.title || "—") + (d.vendor ? '<br><span class="muted small">' + esc(d.vendor) + '</span>' : "") + "</td>" +
+          '<td data-label="Type">' + typeLabel + "</td>" +
+          '<td data-label="Category">' + esc(d.category || "Uncategorized") + "</td>" +
+          '<td data-label="Amount">' + amt + "</td>" +
+          "</tr>";
+      });
+      body.innerHTML = html;
+
+      var totalPages = Math.max(1, Math.ceil(all.length / perPage));
+      var pgHtml = "";
+      if (totalPages > 1) {
+        pgHtml += "<button data-pg=\"prev\" " + (page === 0 ? "disabled" : "") + ">&laquo; Prev</button>";
+        var pStart = Math.max(0, page - 2), pEnd = Math.min(totalPages, pStart + 5);
+        pStart = Math.max(0, pEnd - 5);
+        for (var p = pStart; p < pEnd; p++) {
+          pgHtml += '<button data-pg="' + p + '" class="' + (p === page ? "active" : "") + '">' + (p + 1) + "</button>";
+        }
+        pgHtml += "<button data-pg=\"next\" " + (page >= totalPages - 1 ? "disabled" : "") + ">Next &raquo;</button>";
+        pgHtml += '<span class="muted small">Page ' + (page + 1) + " of " + totalPages + "</span>";
       }
-      if (invalid.length) {
-        html += '<div class="import-summary is-error">Invalid: ' + invalid.length + '</div><ul class="import-issues">';
-        invalid.forEach(function (c) {
-          html += '<li>Row ' + c.rowIndex + ": " + esc(c.errors.join("; ")) + "</li>";
-        });
-        html += "</ul>";
-      }
-      if (duplicates.length) {
-        html += '<div class="import-summary is-warn">Duplicates (will be skipped): ' + duplicates.length + "</div>";
-      }
-      box.innerHTML = html;
+      pgHtml += '<span class="muted small">Showing ' + (start + 1) + "–" + end + " of " + all.length + "</span>";
+      var pg = el("import-pagination"); if (pg) pg.innerHTML = pgHtml;
+
       var btn = el("btn-do-import");
       if (btn) {
-        btn.hidden = valid.length === 0;
-        btn.textContent = "Import " + valid.length + " transaction" + (valid.length === 1 ? "" : "s");
-        btn.setAttribute("data-valid-count", String(valid.length));
+        btn.textContent = "Import " + ready + " Transaction" + (ready === 1 ? "" : "s");
+        btn.setAttribute("data-valid-count", String(ready));
+        btn.disabled = ready === 0;
       }
+    },
+
+    renderImportSummary: function (preview) {
+      var content = el("import-summary-content");
+      var btn = el("btn-do-import");
+      var ready = (preview && preview.valid) ? preview.valid.length : 0;
+      var needsReview = (preview && preview.invalid) ? preview.invalid.length : 0;
+      var dup = (preview && preview.duplicates) ? preview.duplicates.length : 0;
+      if (content) {
+        content.innerHTML = "<p><strong>" + ready + " transactions</strong> ready to import.</p>"
+          + (needsReview > 0 ? '<p class="small">' + needsReview + ' row(s) need review and will be skipped.</p>' : "")
+          + (dup > 0 ? '<p class="small">' + dup + ' possible duplicate(s) will be skipped.</p>' : "")
+          + '<p class="small" style="margin-top:12px">Click import to add these to your ledger. You can review them on the transactions page after.</p>';
+      }
+      if (btn) {
+        btn.textContent = "Import " + ready + " Transaction" + (ready === 1 ? "" : "s");
+        btn.disabled = ready === 0;
+      }
+    },
+
+    renderImportSuccess: function (result) {
+      var content = el("import-summary-content");
+      var btn = el("btn-do-import");
+      if (content) {
+        content.innerHTML =
+          '<p style="font-size:18px;font-weight:700;color:var(--success)">Import complete</p>' +
+          '<p style="margin-top:6px">' + result.imported + ' transaction' + (result.imported === 1 ? '' : 's') + ' were added successfully.</p>' +
+          (result.skippedDuplicates > 0 ? '<p class="small">' + result.skippedDuplicates + ' duplicate(s) skipped.</p>' : '') +
+          (result.skippedInvalid > 0 ? '<p class="small">' + result.skippedInvalid + ' row(s) skipped due to errors.</p>' : '') +
+          '<div style="display:flex;gap:8px;margin-top:16px">' +
+            '<button class="btn btn-primary" data-action="view-tx">View transactions</button>' +
+            '<button class="btn btn-ghost" data-action="go-dashboard">Go to dashboard</button>' +
+          '</div>';
+      }
+      if (btn) btn.classList.add("hidden");
     },
 
     renderBackupPreview: function (info) {

@@ -16,16 +16,19 @@
   var APP_NAME = "Expense Tracker";
   var BACKUP_VERSION = "1.0";
 
-  /* CSV column names for auto-detection */
-  var KNOWN_HEADERS = {
-    date: ["date","transaction date","transdate","posting date","posteddate"],
-    title: ["title","description","name","item","narration","payee","merchant"],
-    amount: ["amount","value","total","price","debit","credit"],
-    type: ["type","transaction type","category type","txntype","kind"],
-    category: ["category","category name","cat","expense type"],
-    vendor: ["vendor","merchant","store","source","payee","supplier"],
-    notes: ["notes","note","memo","comment","description2"]
-  };
+/* CSV column names for auto-detection */
+var KNOWN_HEADERS = {
+  date: ["date","transaction date","transdate","posting date","posteddate"],
+  title: ["title","description","name","item","narration","payee","merchant"],
+  amount: ["amount","value","total","price"],
+  debit: ["debit","withdrawal","payment","out"],
+  credit: ["credit","deposit","income","in"],
+  currency: ["currency","curr","code"],
+  type: ["type","transaction type","category type","txntype","kind"],
+  category: ["category","category name","cat","expense type"],
+  vendor: ["vendor","merchant","store","source","payee","supplier"],
+  notes: ["notes","note","memo","comment","description2"]
+};
 
   /* --------------------------- CSV helpers ------------------------------ */
 
@@ -81,6 +84,59 @@
     return idx;
   }
 
+  function detectImportColumns(headerRow, sampleRows) {
+    var idx = detectColumnIndices(headerRow);
+    idx.currency = -1;
+    idx.debit = -1;
+    idx.credit = -1;
+
+    if (!headerRow) return idx;
+
+    var hasDebitCreditPattern = false;
+    var hasCurrencyPattern = false;
+
+    headerRow.forEach(function (h, i) {
+      var low = String(h || "").trim().toLowerCase();
+      if (idx.debit === -1 && KNOWN_HEADERS.debit.indexOf(low) !== -1) idx.debit = i;
+      if (idx.credit === -1 && KNOWN_HEADERS.credit.indexOf(low) !== -1) idx.credit = i;
+      if (idx.currency === -1 && KNOWN_HEADERS.currency.indexOf(low) !== -1) idx.currency = i;
+    });
+
+    if (idx.debit >= 0 && idx.credit >= 0 && idx.amount < 0) {
+      hasDebitCreditPattern = true;
+    }
+    if (idx.currency >= 0 && idx.amount < 0) {
+      hasCurrencyPattern = true;
+    }
+
+    if (hasDebitCreditPattern && idx.amount < 0) {
+      idx.amount = -1;
+    }
+
+    var dateCols = [];
+    headerRow.forEach(function (h, i) {
+      var low = String(h || "").trim().toLowerCase();
+      if (KNOWN_HEADERS.date.indexOf(low) !== -1) dateCols.push(i);
+    });
+    idx.date = dateCols.length > 0 ? dateCols[0] : -1;
+
+    return idx;
+  }
+
+  function detectDateFormatPattern(dateStr) {
+    if (!dateStr) return { format: "YYYY-MM-DD", ambiguous: false };
+    var m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/.exec(String(dateStr).trim());
+    if (!m) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return { format: "YYYY-MM-DD", ambiguous: false };
+      return { format: "unknown", ambiguous: false };
+    }
+    var first = Number(m[1]), second = Number(m[2]), yr = m[3];
+    if (yr < 100) yr = "20" + yr;
+    if (first > 12 && second <= 12) return { format: "DD/MM/YYYY", ambiguous: false };
+    if (first <= 12 && second > 12) return { format: "MM/DD/YYYY", ambiguous: false };
+    return { format: "ambiguous", ambiguous: true };
+  }
+
   /* --------------------------- date normalization ----------------------- */
 
   function normalizeImportDate(value) {
@@ -105,15 +161,110 @@
   }
 
   function normalizeImportAmount(value) {
-    var n = parseFloat(String(value || "").replace(/[^0-9.\-]/g, ""));
-    return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+    if (!value && value !== 0) return null;
+    var s = String(value).trim();
+    if (s === "") return null;
+    var currencyMatch = s.match(/([A-Z]{3})\s*([-+]?[\d,]+\.?\d*)/i);
+    if (currencyMatch) {
+      var currency = currencyMatch[1].toUpperCase();
+      var amountStr = currencyMatch[2];
+      var n = parseFloat(amountStr.replace(/,/g, ""));
+      if (isFinite(n)) return Math.round(n * 100) / 100;
+    }
+    var n = parseFloat(s.replace(/[^0-9.\-]/g, ""));
+    return isFinite(n) ? Math.round(n * 100) / 100 : null;
   }
 
   function normalizeImportType(value, defaultType) {
+    if (!value) return defaultType || "expense";
     var low = String(value || "").trim().toLowerCase();
-    if (["income","credit","in","+"].indexOf(low) !== -1) return "income";
-    if (["expense","debit","out","-"].indexOf(low) !== -1) return "expense";
+    if (["income","credit","in","+","deposit"].indexOf(low) !== -1) return "income";
+    if (["expense","debit","out","-","payment","withdrawal"].indexOf(low) !== -1) return "expense";
     return defaultType || "expense";
+  }
+
+  function inferTransactionTypeFromAmounts(dateColIdx, amountColIdx, debitColIdx, creditColIdx, row) {
+    if (debitColIdx >= 0 && creditColIdx >= 0) {
+      var debitVal = normalizeImportAmount(row[debitColIdx]);
+      var creditVal = normalizeImportAmount(row[creditColIdx]);
+      if (debitVal && !creditVal) return "expense";
+      if (creditVal && !debitVal) return "income";
+      if (debitVal && creditVal) return debitVal > creditVal ? "expense" : "income";
+    }
+    var amountVal = normalizeImportAmount(row[amountColIdx]);
+    if (amountVal === null) return null;
+    if (amountVal < 0) return "expense";
+    if (amountVal > 0) return "income";
+    return null;
+  }
+
+  function categorizeTransaction(description, categoryHint, vendor) {
+    if (!description) return categoryHint || "Other";
+    var text = (categoryHint || "") + " " + (vendor || "") + " " + description;
+    var expenseCat = matchCategory(text, EXPENSE_CATEGORY_KEYWORDS);
+    var incomeCat = matchCategory(text, INCOME_CATEGORY_KEYWORDS);
+    if (expenseCat && incomeCat) {
+      var expLen = keywordLen(text, EXPENSE_CATEGORY_KEYWORDS[expenseCat]);
+      var incLen = keywordLen(text, INCOME_CATEGORY_KEYWORDS[incomeCat]);
+      return expLen >= incLen ? expenseCat : incomeCat;
+    }
+    return expenseCat || incomeCat || categoryHint || (description && "Other") || "Other";
+  }
+
+  var EXPENSE_CATEGORY_KEYWORDS = {
+    "Food & Groceries": ["grocery", "groceries", "supermarket", "carrefour", "sugar", "food", "lunch", "dinner", "breakfast", "restaurant", "cafe", "coffee", "snacks", "starbucks", "kfc", "mcdonald"],
+    "Transport": ["petrol", "fuel", "taxi", "uber", "careem", "metro", "bus", "parking", "car", "enoc", "adnoc"],
+    "Shopping": ["clothes", "shoes", "amazon", "electronics", "phone", "laptop", "shirt", "t-shirt", "dress", "watch", "bag"],
+    "Bills": ["electricity", "water", "internet", "wifi", "phone bill", "recharge", "dewa", "etisalat", "du", "utility", "bill"],
+    "Entertainment": ["netflix", "cinema", "movie", "game", "spotify", "subscription", "concert", "entertainment"],
+    "Health": ["doctor", "medicine", "pharmacy", "hospital", "gym", "dentist", "clinic"],
+    "Education": ["course", "udemy", "books", "university", "school", "tuition", "coursera"],
+    "Rent": ["rent", "apartment", "accommodation"],
+    "Travel": ["flight", "hotel", "airbnb", "booking", "travel"]
+  };
+
+  var INCOME_CATEGORY_KEYWORDS = {
+    "Salary": ["salary", "paycheck", "monthly salary", "wage", "payroll"],
+    "Freelance": ["freelance", "client", "project payment", "upwork", "fiverr", "freelancing"],
+    "Business": ["business", "customer payment", "sale", "profit", "sales"],
+    "Investment": ["investment", "dividend", "stocks", "crypto", "interest", "shares"],
+    "Rental Income": ["rent received", "tenant", "rental income"],
+    "Gift": ["gift", "gifted"],
+    "Refund": ["refund", "refunded"],
+    "Other Income": []
+  };
+
+  function matchCategory(text, map) {
+    if (!text) return null;
+    var lower = " " + text.toLowerCase() + " ";
+    var chosen = null, chosenLen = -1;
+    Object.keys(map).forEach(function (cat) {
+      (map[cat] || []).forEach(function (kw) {
+        if (!kw) return;
+        var re = kw.length <= 3 ? new RegExp("\\b" + escRe(kw) + "\\b") : new RegExp("\\b" + escRe(kw));
+        if (!re.test(lower)) return;
+        if (kw.length > chosenLen) {
+          chosen = cat;
+          chosenLen = kw.length;
+        }
+      });
+    });
+    return chosen;
+  }
+
+  function keywordLen(text, kws) {
+    if (!text || !kws) return 0;
+    var lower = text.toLowerCase();
+    var len = -1;
+    (kws || []).forEach(function (kw) {
+      var idx = lower.indexOf(kw);
+      if (idx !== -1 && kw.length > len) len = kw.length;
+    });
+    return len;
+  }
+
+  function escRe(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   /* --------------------------- transaction rows ------------------------- */
@@ -185,6 +336,63 @@
     ].join("|");
   }
 
+  function previewImport(candidates, existing) {
+    var valid = [], invalid = [], duplicates = [];
+    var acceptedFp = {};
+    var byId = {};
+    (existing || []).forEach(function (t) { if (t.id) byId[t.id] = true; acceptedFp[fingerprint(t)] = true; });
+    candidates.forEach(function (c) {
+      if (c.errors.length) { invalid.push(c); return; }
+      if (c.skip || c.excluded) { duplicates.push(c); return; }
+      var fp = fingerprint(c.data);
+      if (acceptedFp[fp]) { duplicates.push(c); return; }
+      /* Check against recently added fingerprints for same-day near-duplicates */
+      var isDuplicate = false;
+      var existingKeys = Object.keys(acceptedFp);
+      existingKeys.forEach(function (existingFp) {
+        if (isLikelyDuplicate(c.data, existingFp)) { isDuplicate = true; return; }
+      });
+      if (isDuplicate) { duplicates.push(c); return; }
+      acceptedFp[fp] = true;
+      valid.push(c);
+    });
+    return { valid: valid, invalid: invalid, duplicates: duplicates, total: candidates.length };
+  }
+
+  function isLikelyDuplicate(candidateData, existingFp) {
+    var fpParts = existingFp.split("|");
+    var fpDate = fpParts[0] || "", fpType = fpParts[1] || "", fpAmount = fpParts[2] || "", fpTitle = fpParts[3] || "", fpCategory = fpParts[4] || "";
+    var nearDate = areDatesNearlyEqual(candidateData.date, fpDate);
+    var similarDesc = areDescriptionsSimilar(candidateData.title, fpTitle);
+    var sameType = candidateData.type === fpType;
+    var sameAmt = String(Math.abs(candidateData.amount || 0)) === String(Math.abs(parseFloat(fpAmount) || 0));
+    var sameCategory = candidateData.category && fpCategory && candidateData.category === fpCategory;
+
+    var matchCount = (nearDate ? 1 : 0) + (similarDesc ? 1 : 0) + (sameType ? 1 : 0) + (sameAmt ? 1 : 0) + (sameCategory ? 1 : 0);
+    return matchCount >= 3;
+  }
+
+  function areDatesNearlyEqual(date1, date2) {
+    if (!date1 || !date2) return false;
+    var d1 = new Date(date1), d2 = new Date(date2);
+    var diff = Math.abs(d1 - d2);
+    var daysDiff = diff / (1000 * 60 * 60 * 24);
+    return daysDiff <= 7;
+  }
+
+  function areDescriptionsSimilar(desc1, desc2) {
+    if (!desc1 || !desc2) return false;
+    var d1 = (desc1 || "").toLowerCase().replace(/\s+/g, " ");
+    var d2 = (desc2 || "").toLowerCase().replace(/\s+/g, " ");
+    var tokens1 = new Set(d1.split(" "));
+    var tokens2 = new Set(d2.split(" "));
+    if (tokens1.size < 3 || tokens2.size < 3) return false;
+    var common = 0;
+    tokens1.forEach(function (t) { if (tokens2.has(t)) common++; });
+    var similarity = common / Math.max(tokens1.size, tokens2.size);
+    return similarity >= 0.5;
+  }
+
   function detectDuplicates(incoming, existing) {
     var byId = {}, byFp = {};
     existing.forEach(function (t) { if (t.id) byId[t.id] = true; byFp[fingerprint(t)] = true; });
@@ -209,24 +417,134 @@
     rows.forEach(function (row, idx) {
       total++;
       var errors = [];
-      var date = mapping.date != null && mapping.date >= 0 ? normalizeImportDate(row[mapping.date]) : null;
+      var warnings = [];
+
+      var rawDate = (mapping.date != null && mapping.date >= 0 && row[mapping.date] !== undefined) ? row[mapping.date] : "";
+      var date = normalizeImportDate(rawDate);
       if (!date) errors.push("Invalid or missing date");
-      var amount = mapping.amount != null && mapping.amount >= 0 ? normalizeImportAmount(row[mapping.amount]) : null;
+
+      var rawAmount = null;
+      var amount = null;
+      var inferredType = null;
+
+      if (mapping.debit >= 0 || mapping.credit >= 0) {
+        var debitCol = mapping.debit >= 0 ? normalizeImportAmount(row[mapping.debit]) : null;
+        var creditCol = mapping.credit >= 0 ? normalizeImportAmount(row[mapping.credit]) : null;
+
+        if (debitCol !== null && creditCol !== null) {
+          amount = debitCol + creditCol;
+          if (amount < 0) { amount = Math.abs(amount); inferredType = "expense"; }
+          else if (amount > 0) inferredType = (debitCol > creditCol || creditCol === 0) ? "expense" : "income";
+          else { amount = Math.max(Math.abs(debitCol), Math.abs(creditCol)); inferredType = "expense"; }
+          if (debitCol > 0 && creditCol === 0) { amount = debitCol; inferredType = "expense"; }
+          if (creditCol > 0 && debitCol === 0) { amount = creditCol; inferredType = "income"; }
+        } else if (debitCol !== null) {
+          amount = debitCol;
+          if (amount < 0) { amount = Math.abs(amount); inferredType = "expense"; }
+          else inferredType = "expense";
+        } else if (creditCol !== null) {
+          amount = creditCol;
+          if (amount < 0) { amount = Math.abs(amount); inferredType = "income"; }
+          else inferredType = "income";
+        }
+      } else if (mapping.amount >= 0) {
+        rawAmount = (mapping.amount != null && mapping.amount >= 0 && row[mapping.amount] !== undefined) ? row[mapping.amount] : "";
+        amount = normalizeImportAmount(rawAmount);
+        if (amount === null) amount = null;
+        if (amount !== null) {
+          if (amount < 0) { inferredType = "expense"; amount = Math.abs(amount); }
+          else inferredType = "income";
+        }
+      }
+
       if (amount == null) errors.push("Invalid or missing amount");
-      var title = (mapping.title != null && mapping.title >= 0) ? String(row[mapping.title] || "").trim() : "";
-      if (!title && mapping.category != null && mapping.category >= 0 && row[mapping.category]) title = String(row[mapping.category]).trim();
+
+      var title = (mapping.title != null && mapping.title >= 0 && row[mapping.title] !== undefined) ? String(row[mapping.title] || "").trim() : "";
+      if (!title && mapping.category != null && mapping.category >= 0 && row[mapping.category] !== undefined) title = String(row[mapping.category]).trim();
+      if (!title && mapping.vendor != null && mapping.vendor >= 0 && row[mapping.vendor] !== undefined) title = String(row[mapping.vendor]).trim();
+      if (!title && mapping.notes != null && mapping.notes >= 0 && row[mapping.notes] !== undefined) title = String(row[mapping.notes]).trim();
       if (!title) title = "Imported transaction";
-      var type = (mapping.type != null && mapping.type >= 0) ? normalizeImportType(row[mapping.type], defaultType) : defaultType || "expense";
-      var category = (mapping.category != null && mapping.category >= 0) ? String(row[mapping.category] || "").trim() : "";
-      var vendor = (mapping.vendor != null && mapping.vendor >= 0) ? String(row[mapping.vendor] || "").trim() : "";
-      var notes = (mapping.notes != null && mapping.notes >= 0) ? String(row[mapping.notes] || "").trim() : "";
+
+      var type = null;
+      if (mapping.type != null && mapping.type >= 0 && row[mapping.type] !== undefined) {
+        type = normalizeImportType(row[mapping.type], defaultType);
+      }
+      if (!type && inferredType) type = inferredType;
+      if (!type) type = defaultType || "expense";
+
+      var category = "";
+      if (mapping.category != null && mapping.category >= 0 && row[mapping.category] !== undefined) {
+        category = String(row[mapping.category] || "").trim();
+      }
+
+      if (!category && !type.includes("income")) {
+        category = categorizeTransaction(title + " " + (row[mapping.vendor] || ""), null, row[mapping.vendor] || "");
+      } else if (!category) {
+        category = "Other Income";
+      }
+
+      var vendor = "";
+      if (mapping.vendor != null && mapping.vendor >= 0 && row[mapping.vendor] !== undefined) {
+        vendor = String(row[mapping.vendor] || "").trim();
+      } else {
+        vendor = detectVendor(title);
+      }
+
+      var notes = "";
+      if (mapping.notes != null && mapping.notes >= 0 && row[mapping.notes] !== undefined) {
+        notes = String(row[mapping.notes] || "").trim();
+      }
+
+      var currency = ET.settings ? ET.settings.getCurrency() : "AED";
+      if (mapping.currency >= 0 && row[mapping.currency] !== undefined) {
+        var c = String(row[mapping.currency] || "").trim().toUpperCase();
+        if (c.length === 3 || knownCurrency(c)) currency = c;
+      }
+
+      var detectedType = type;
+      if (type === "expense" && amount < 0) {
+        detectedType = "income";
+        warnings.push("Negative amount treated as income");
+      }
+
+      var finalType = detectedType;
+      var finalAmount = amount;
+      if (finalAmount === null && rawAmount !== null) finalAmount = normalizeImportAmount(String(rawAmount).replace(/[^\-.\d]/g, ""));
+      var finalCategory = category;
+      if (!finalCategory || finalCategory === "Other") {
+        finalCategory = categorizeTransaction(title, category, vendor);
+      }
+
       candidates.push({
-        data: { type: type, title: title, amount: amount, category: category, vendor: vendor, date: date, notes: notes },
+        data: { type: finalType, title: title, amount: finalAmount, category: finalCategory, vendor: vendor, date: date, notes: notes, currency: currency },
         errors: errors,
-        rowIndex: idx + 1
+        warnings: warnings,
+        rowIndex: idx + 1,
+        skip: false
       });
     });
+
     return { candidates: candidates, total: total };
+  }
+
+  function knownCurrency(c) {
+    var currencies = ["AED","USD","EUR","GBP","SAR","QAR","KWD","BHD","OMR","JOD","COP","CAD","AUD","CHF","INR","CNY"];
+    return currencies.indexOf(c) !== -1;
+  }
+
+  function detectVendor(text) {
+    if (!text) return "";
+    var vendors = ["CARREFOUR","NETFLIX","AMAZON","UBER","CAREEM","STARBURSTS","ETIHAD","EMIRATES","DU","DEWA","ETISALAT","SHELL","ENOC","ADNOC","MATHAF","LULU","NAJIB","NOOR","AL FAHAIM","ALDAR"];
+    var lower = text.toLowerCase();
+    for (var i = 0; i < vendors.length; i++) {
+      if (lower.indexOf(vendors[i].toLowerCase()) !== -1) return vendors[i];
+    }
+    return "";
+  }
+
+  function detectTypeFromAmount(amount) {
+    if (amount === null || amount === undefined) return null;
+    return Number(amount) < 0 ? "expense" : "income";
   }
 
   /* Build candidates from JSON array of objects. */
@@ -253,21 +571,6 @@
       });
     });
     return { candidates: candidates, total: total };
-  }
-
-  function previewImport(candidates, existing) {
-    var valid = [], invalid = [], duplicates = [];
-    var acceptedFp = {};
-    var byId = {};
-    (existing || []).forEach(function (t) { if (t.id) byId[t.id] = true; acceptedFp[fingerprint(t)] = true; });
-    candidates.forEach(function (c) {
-      if (c.errors.length) { invalid.push(c); return; }
-      var fp = fingerprint(c.data);
-      if (acceptedFp[fp]) { duplicates.push(c); return; }
-      acceptedFp[fp] = true;
-      valid.push(c);
-    });
-    return { valid: valid, invalid: invalid, duplicates: duplicates, total: candidates.length };
   }
 
   async function importValidRows(preview) {
@@ -435,6 +738,12 @@
     KNOWN_HEADERS: KNOWN_HEADERS,
     csvEscape: csvEscape, toCSV: toCSV, parseCSV: parseCSV,
     detectColumnIndices: detectColumnIndices,
+    detectImportColumns: detectImportColumns,
+    inferTransactionTypeFromAmounts: inferTransactionTypeFromAmounts,
+    categorizeTransaction: categorizeTransaction,
+    detectVendor: detectVendor,
+    knownCurrency: knownCurrency,
+    detectTypeFromAmount: detectTypeFromAmount,
     transactionToRow: transactionToRow,
     exportTransactionsCSV: exportTransactionsCSV,
     exportTransactionsJSON: exportTransactionsJSON,

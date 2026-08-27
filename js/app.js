@@ -947,50 +947,24 @@
   }
 
   function showImportError(message) {
+    if (ui && ui.showImportError) { ui.showImportError(message); return; }
     var err = el("import-error");
     if (!err) return;
     err.textContent = message;
     err.hidden = false;
-    el("import-preview").hidden = true;
-    el("import-mapping").hidden = true;
     var btn = el("btn-do-import");
     if (btn) btn.hidden = true;
   }
 
-  function handleImportFile(text, filename) {
-    importState = null;
-    var err = el("import-error");
-    if (err) { err.hidden = true; err.textContent = ""; }
-    var lower = filename.toLowerCase();
-    try {
-      if (lower.indexOf(".csv") !== -1) {
-        var rows = ET.data.parseCSV(text);
-        if (rows.length < 2) { showImportError("The CSV file does not contain enough data."); return; }
-        var header = rows[0];
-        var body = rows.slice(1);
-        var indices = ET.data.detectColumnIndices(header);
-        if (indices.date < 0 || indices.amount < 0) {
-          showImportError("Could not detect required columns (Date and Amount). Use the mapping below to assign them.");
-          indices = { date: 0, title: 1, amount: 2, type: -1, category: 3, vendor: -1, notes: -1 };
-        }
-        importState = { type: "csv", rows: body, header: header, indices: indices };
-        ui.renderImportMapping(header, indices);
-        el("import-file-name").textContent = filename;
-        previewImportNow();
-      } else {
-        var parsed = JSON.parse(text);
-        if (!Array.isArray(parsed)) { showImportError("The JSON file must contain an array of transactions."); return; }
-        var candidates = ET.data.buildImportedRowsFromObjects(parsed, "expense");
-        importState = { type: "json", candidates: candidates.candidates };
-        el("import-file-name").textContent = filename;
-        previewImportNow();
-      }
-    } catch (e) {
-      showImportError("Unable to import this file. Reason: " + (e && e.message ? e.message : "unexpected error") + ".");
-    }
+  function showImportMappingStep() {
+    importWizardStep = 2;
+    ui.setImportStep(importWizardStep);
+    ui.renderImportMapping(importState.header, importState.indices);
+    el("import-file-name").textContent = importState.filename || "No file selected";
+    previewCandidates();
   }
 
-  function previewImportNow() {
+  function previewCandidates() {
     if (!importState) return;
     var candidates;
     if (importState.type === "csv") {
@@ -1000,8 +974,64 @@
     } else {
       candidates = importState.candidates;
     }
+    return candidates;
+  }
+
+  function handleImportFile(text, filename) {
+    importState = null;
+    importWizardStep = 1;
+    var err = el("import-error");
+    if (err) { err.hidden = true; err.textContent = ""; }
+    var lower = filename.toLowerCase();
+    try {
+      if (lower.indexOf(".csv") !== -1) {
+        var rows = ET.data.parseCSV(text);
+        if (rows.length < 2) { ui.showImportError("The CSV file does not contain enough data."); return; }
+        var header = rows[0];
+        var body = rows.slice(1);
+        var indices = ET.data.detectImportColumns(header, body.slice(0, 5));
+        if (indices.date < 0) {
+          indices.date = 0;
+        }
+        if (indices.amount < 0 && indices.debit < 0 && indices.credit < 0) {
+          indices.amount = 1;
+          indices.debit = -1;
+          indices.credit = -1;
+        }
+        importState = { type: "csv", rows: body, header: header, indices: indices, filename: filename };
+        showImportMappingStep();
+      } else {
+        var parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) { ui.showImportError("The JSON file must be an array of transactions."); return; }
+        var candidates = ET.data.buildImportedRowsFromObjects(parsed, "expense");
+        importState = { type: "json", candidates: candidates.candidates, filename: filename };
+        el("import-file-name").textContent = filename;
+        importWizardStep = 3;
+        ui.setImportStep(importWizardStep);
+        var preview = ET.data.previewImport(candidates.candidates, expenses.all());
+        ui.renderImportPreview(preview, candidates.candidates, filename, 0, 25);
+      }
+    } catch (e) {
+      showImportError("Unable to import this file. Reason: " + (e && e.message ? e.message : "unexpected error") + ".");
+    }
+  }
+
+  function previewImportNow() {
+    var candidates = previewCandidates();
+    if (!candidates) return;
     var preview = ET.data.previewImport(candidates, expenses.all());
-    ui.renderImportPreview(preview, candidates, el("import-file-name").textContent);
+    ui.renderImportPreview(preview, candidates, importState.filename || "", 0, 25);
+  }
+
+  function advanceToPreview() {
+    importWizardStep = 3;
+    ui.setImportStep(importWizardStep);
+    previewImportNow();
+  }
+
+  function backToMapping() {
+    importWizardStep = 2;
+    ui.setImportStep(importWizardStep);
   }
 
   async function doImport() {
@@ -1023,6 +1053,10 @@
     if (ET.sheets.isConnected() && result.imported > 0) {
       ui.toast("New transactions are pending sync. Use Sync All on the Google Sheets page.", "info");
     }
+    importState = null;
+    importWizardStep = 4;
+    ui.setImportStep(importWizardStep);
+    ui.renderImportSummary(preview);
   }
 
   function doCreateBackup() {
@@ -1328,12 +1362,55 @@ function setupDangerButton(inputId, btnId, phrase, action) {
     el("import-file").addEventListener("change", function (e) {
       var file = e.target.files[0];
       if (!file) return;
-      handleImportFile(file, file.name);
+      el("import-file-name").textContent = file.name;
+      readFile(file).then(function (text) {
+        handleImportFile(text, file.name);
+      }).catch(function (err) {
+        ui.showImportError("We couldn't read this CSV file. Please check the file format and try again.");
+      });
     });
+    el("btn-choose-file").addEventListener("click", function () {
+      el("import-file").click();
+    });
+    var dropZone = el("import-drop-zone");
+    if (dropZone) {
+      ["dragenter","dragover"].forEach(function (ev) {
+        dropZone.addEventListener(ev, function (e) {
+          e.preventDefault();
+          dropZone.classList.add("dragover");
+        });
+      });
+      ["dragleave","drop"].forEach(function (ev) {
+        dropZone.addEventListener(ev, function (e) {
+          e.preventDefault();
+          dropZone.classList.remove("dragover");
+        });
+      });
+      dropZone.addEventListener("drop", function (e) {
+        var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!file) return;
+        el("import-file-name").textContent = file.name;
+        readFile(file).then(function (text) {
+          handleImportFile(text, file.name);
+        }).catch(function () {
+          ui.showImportError("We couldn't read this CSV file. Please check the file format and try again.");
+        });
+      });
+    }
     el("import-mapping").addEventListener("change", function () {
       previewImportNow();
     });
+    el("btn-import-continue").addEventListener("click", advanceToPreview);
+    el("btn-import-back").addEventListener("click", backToMapping);
+    el("btn-import-proceed").addEventListener("click", doImport);
+    el("btn-import-back-step4").addEventListener("click", backToMapping);
     el("btn-do-import").addEventListener("click", doImport);
+    document.querySelectorAll("[data-action='view-tx']").forEach(function (b) {
+      b.addEventListener("click", function () { goToView("transactions"); });
+    });
+    document.querySelectorAll("[data-action='go-dashboard']").forEach(function (b) {
+      b.addEventListener("click", function () { goToView("dashboard"); });
+    });
 
     // Backup
     el("btn-create-backup").addEventListener("click", doCreateBackup);
@@ -1738,5 +1815,5 @@ function setupDangerButton(inputId, btnId, phrase, action) {
     init();
   }
 
-  ET.app = { refresh: refresh, goToView: goToView, _state: state };
+  ET.app = { refresh: refresh, goToView: goToView, _state: state, openAddDrawer: openAddDrawer, loadSamples: loadSamples };
 })(window, document);

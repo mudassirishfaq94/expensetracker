@@ -669,21 +669,74 @@
               <p class="data-count" id="export-count">Matching transactions: 0</p>
             </section>
 
-            <!-- Import -->
+            <!-- Import Wizard -->
             <section class="panel">
               <div class="panel-head"><h2 class="panel-title">Import data</h2><span class="panel-note">CSV &middot; JSON</span></div>
-              <div class="data-actions">
-                <label class="btn btn-primary file-btn">
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-                  Choose file
-                  <input type="file" id="import-file" accept=".csv,.json" hidden />
-                </label>
-                <span class="budgets-hint" id="import-file-name">No file selected</span>
+              <div class="import-wizard-step-indicator">
+                <div class="step active" data-step="1">1. Upload</div>
+                <svg class="step-divider" viewBox="0 0 24 24"><path d="M4 18l8.5-8.5 8.4 8.5L20 6l-8-8 8-8L10 14l8.5 8.5z"/></svg>
+                <div class="step" data-step="2">2. Map</div>
+                <svg class="step-divider" viewBox="0 0 24 24"><path d="M4 18l8.5-8.5 8.4 8.5L20 6l-8-8 8-8L10 14l8.5 8.5z"/></svg>
+                <div class="step" data-step="3">3. Review</div>
+                <svg class="step-divider" viewBox="0 0 24 24"><path d="M4 18l8.5-8.5 8.4 8.5L20 6l-8-8 8-8L10 14l8.5 8.5z"/></svg>
+                <div class="step" data-step="4">4. Import</div>
               </div>
-              <div id="import-mapping" hidden></div>
-              <div id="import-preview" hidden></div>
-              <p class="field-error" id="import-error" hidden></p>
-              <button class="btn btn-primary" id="btn-do-import" hidden>Import transactions</button>
+              <div id="import-drop-zone" class="import-drop-zone hidden">
+                <p>Drag and drop CSV file here</p>
+                <p class="small">or <span class="btn btn-ghost" id="btn-choose-file">choose file</span></p>
+              </div>
+              <div id="import-error" class="import-error hidden"></div>
+<label class="btn btn-primary file-btn hidden" id="import-file-label">
+                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                 Choose file
+                 <input type="file" id="import-file" accept=".csv,.json" hidden />
+               </label>
+               <span class="budgets-hint" id="import-file-name">No file selected</span>
+              <div id="import-wizard-step-2" class="import-panel-step hidden">
+                <h3 class="budget-section-title" style="margin:10px 0 8px">Map CSV columns</h3>
+                <p class="small">Review and adjust the automatic column mappings.</p>
+                <div id="import-mapping"></div>
+                <div class="field-row" style="margin:12px 0;">
+                  <label for="import-default-type">Default type (if missing)</label>
+                  <select id="import-default-type">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary" style="margin-top:12px;" id="btn-import-continue">Continue to Preview</button>
+              </div>
+              <div id="import-wizard-step-3" class="import-panel-step hidden">
+                <h3 class="budget-section-title" style="margin:10px 0 6px">Import preview</h3>
+                <p class="small" id="import-file-detected">0 rows detected.</p>
+                <div class="import-summary-area">
+                  <div id="import-valid-summary" class="import-summary is-ok hidden">Valid: 0</div>
+                  <div id="import-invalid-summary" class="import-summary is-error hidden"></div>
+                  <div id="import-duplicate-summary" class="import-summary is-warn hidden"></div>
+                </div>
+                <div class="import-table-wrap" id="import-table-wrap">
+                  <table class="import-table" id="import-table">
+                    <thead><tr><th>#</th><th>Date</th><th>Description</th><th>Type</th><th>Category</th><th>Amount</th></tr></thead>
+                    <tbody id="import-table-body"></tbody>
+                  </table>
+                </div>
+                <p class="import-pagination" id="import-pagination"></p>
+                <p class="small" id="import-notes">Rows marked with ⚠ need review. You can exclude or edit them before importing.</p>
+                <div style="display:flex; gap:8px; margin-top:14px;">
+                  <button class="btn btn-ghost" id="btn-import-back">Back to mapping</button>
+                  <button class="btn btn-primary" id="btn-import-proceed">Continue to Import</button>
+                </div>
+              </div>
+              <div id="import-wizard-step-4" class="import-panel-step hidden">
+                <h3 class="budget-section-title" style="margin:10px 0 6px">Ready to import</h3>
+                <div id="import-summary-content">
+                  <p>231 transactions ready to import.</p>
+                  <p class="small">12 transactions need review, 4 possible duplicates will be skipped.</p>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:20px;">
+                  <button class="btn btn-ghost" id="btn-import-back-step4">Back to preview</button>
+                  <button class="btn btn-primary" id="btn-do-import" style="flex:1;">Import 231 Transactions</button>
+                </div>
+              </div>
             </section>
           </div>
 
