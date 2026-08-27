@@ -1208,7 +1208,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(24px, 6vw, 72px);
+  gap: clamp(40px, 8vw, 96px);
   padding: 40px 24px;
   background:
     radial-gradient(90% 120% at 15% 0%, rgba(201,162,39,0.12) 0%, rgba(201,162,39,0) 45%),
@@ -1256,16 +1256,17 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
 }
 .auth-hero-title {
   font-family: "Fraunces", serif;
-  font-size: clamp(28px, 4.2vw, 42px);
+  font-size: clamp(24px, 3.6vw, 34px);
   font-weight: 700;
-  line-height: 1.12;
+  line-height: 1.15;
   color: var(--ink);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.3px;
+  margin-bottom: 12px;
 }
 .auth-hero-sub {
-  margin-top: 16px;
-  font-size: 15.5px;
-  line-height: 1.6;
+  margin-top: 0;
+  font-size: 14px;
+  line-height: 1.55;
   color: var(--ink-2);
   max-width: 460px;
 }
