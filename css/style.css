@@ -1094,6 +1094,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   border-color: var(--primary); background: var(--primary-soft);
 }
 .import-drop-zone .small { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.import-drop-zone.hidden { display: none; }
 
 .import-panel-step { margin-top: 14px; }
 .import-panel-step .small { color: var(--muted); font-size: 12.5px; margin: 6px 0; }

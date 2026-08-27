@@ -756,17 +756,17 @@
                 <svg class="step-divider" viewBox="0 0 24 24"><path d="M4 18l8.5-8.5 8.4 8.5L20 6l-8-8 8-8L10 14l8.5 8.5z"/></svg>
                 <div class="step" data-step="4">4. Import</div>
               </div>
-              <div id="import-drop-zone" class="import-drop-zone hidden">
+<div id="import-drop-zone" class="import-drop-zone">
                 <p>Drag and drop CSV file here</p>
                 <p class="small">or <span class="btn btn-ghost" id="btn-choose-file">choose file</span></p>
               </div>
               <div id="import-error" class="import-error hidden"></div>
-<label class="btn btn-primary file-btn hidden" id="import-file-label">
-                 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-                 Choose file
-                 <input type="file" id="import-file" accept=".csv,.json" hidden />
-               </label>
-               <span class="budgets-hint" id="import-file-name">No file selected</span>
+              <label class="btn btn-primary file-btn" id="import-file-label">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                Choose file
+                <input type="file" id="import-file" accept=".csv,.json" hidden />
+              </label>
+              <span class="budgets-hint" id="import-file-name">No file selected</span>
               <div id="import-wizard-step-2" class="import-panel-step hidden">
                 <h3 class="budget-section-title" style="margin:10px 0 8px">Map CSV columns</h3>
                 <p class="small">Review and adjust the automatic column mappings.</p>
