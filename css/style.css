@@ -85,7 +85,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   flex-shrink: 0;
   background: linear-gradient(180deg, var(--forest) 0%, var(--forest-700) 100%);
   color: #E7EEE9;
-  position: sticky;
+  position: fixed; /* Fixed sidebar */
   top: 0;
   height: 100vh;
   display: flex;
@@ -189,14 +189,17 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   padding: 10px 14px;
   background: var(--forest);
   color: #fff;
-  position: sticky; top: 0; z-index: 30;
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 50;
+  width: 100%;
+  box-sizing: border-box;
 }
 .mobile-brand { display: flex; align-items: center; gap: 10px; font-family: "Fraunces", serif; font-size: 18px; font-weight: 600; min-width: 0; }
 .mobile-logo { height: 30px; width: auto; flex-shrink: 0; }
 .mobile-brand-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* ------------------------------- Main ---------------------------------- */
-.main { flex: 1; min-width: 0; padding: 30px clamp(18px, 4vw, 44px) 64px; }
+.main { flex: 1; min-width: 0; padding: 30px clamp(18px, 4vw, 44px) 64px; margin-left: var(--sidebar-w); }
 
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -277,6 +280,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
   justify-content: center;
   margin-top: 22px;
 }
+.onboarding-actions .btn { margin: 4px 0; }
 
 /* ------------------------- Smart natural-language input ----------------- */
 .smart-panel {
@@ -1631,7 +1635,7 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; colo
     box-shadow: var(--shadow-lg);
   }
   .sidebar.is-open { transform: translateX(0); }
-  .main { padding: 20px 18px 56px; }
+  .main { padding: 70px 18px 56px; margin-left: 0; }
   .topbar { margin-bottom: 20px; }
   .topbar-title { font-size: 25px; }
   /* Add button in topbar is redundant with mobile-bar's + */
